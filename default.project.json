@@ -1,0 +1,12 @@
+{
+	"name": "hula",
+	"tree": {
+		"$className": "DataModel",
+		"ReplicatedStorage": {
+			"$className": "ReplicatedStorage",
+			"$ignoreUnknownInstances": true,
+			
+			"hula": { "$path": "hula" }
+		}
+	}
+}
