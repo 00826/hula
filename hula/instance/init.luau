@@ -11,8 +11,8 @@ local TweenService = game:GetService("TweenService")
 ---
 --- Instance library extension
 local instanceh = {
-	accessoryflag = "Accessory";
-	appearanceflag = "AppearanceDescription";
+	accessoryflag = "h_accessory";
+	appearanceflag = "h_appearancedescription";
 	appearancemap = {
 		accessoryproperties = {
 			"BackAccessory";
