@@ -60,7 +60,7 @@ local color3h = {
 	glow750 = Color3.fromRGB(750, 750, 750);
 	glow1000 = Color3.fromRGB(1000, 1000, 1000);
 
-	PlayerColors = {
+	stringcolors = {
 		[1] = Color3.fromRGB(253, 41, 67); --- Color3.new(253/255, 41/255, 67/255);
 		[2] = Color3.fromRGB(1, 162, 255); --- Color3.new(1/255, 162/255, 255/255);
 		[3] = Color3.fromRGB(2, 184, 87); --- Color3.new(2/255, 184/255, 87/255);
@@ -71,7 +71,7 @@ local color3h = {
 		[8] = Color3.fromRGB(215, 197, 154); --- BrickColor.new("Brick yellow").Color;
 	};
 
-	BrickColors = {
+	brickcolors = {
 		["Alder"] = Color3.new(0.705882, 0.501961, 1);
 		["Artichoke"] = Color3.new(0.541176, 0.670588, 0.521569);
 		["Baby blue"] = Color3.new(0.596078, 0.760784, 0.858824);
@@ -330,12 +330,12 @@ function color3h.invert(c: Color3)
 end
 
 --- returns vertexcolor from color3
-function color3h.tovertexcolor(c: Color3)
+function color3h.tovector3(c: Color3)
 	return Vector3.new(c.R, c.G, c.B)
 end
 
 --- returns color3 from vertexcolor
-function color3h.fromvertexcolor(v: Vector3)
+function color3h.fromvector3(v: Vector3)
 	return Color3.new(v.X, v.Y, v.Z)
 end
 
@@ -345,7 +345,7 @@ function color3h.mul(c: Color3, x: number)
 end
 
 --- returns color3 with respect to player name
-function color3h.fromplayername(name: string)
+function color3h.fromstring(name: string)
 	local value, len = 0, string.len(name)
 
 	for i = 1, len do
@@ -359,9 +359,9 @@ function color3h.fromplayername(name: string)
 		end
 		value += byte
 	end
-	value %= #color3h.PlayerColors
+	value %= #color3h.stringcolors
 
-	return color3h.PlayerColors[1 + value]
+	return color3h.stringcolors[1 + value]
 end
 
 return color3h

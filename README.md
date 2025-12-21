@@ -10,13 +10,13 @@ a table of roblox-luau convenience modules
 ## gotchas
 
 1. code in this repo is always being cycled in and out on a per-need basis
-2. [network.luau](./hula/network/init.luau) must be required on the server for its `send()`, `recv()`, `s()`, and `ms()` functions to work
+2. [net.luau](./hula/net/init.luau) must be required on the server for its `send()`, `recv()`, `s()`, and `ms()` functions to work
 
 ## modules
 
 |module|bases covered|
 |-|-|
-|[hula](./hula/init.luau)|main module|
+|[hula](./hula/init.luau)|table|
 |-|-|
 |[color3.luau](./hula/color3/init.luau)|`Color3`, `ColorSequence` library extension|
 |[gui.luau](./hula/gui/init.luau)|`UDim`, `UDim2`, `Vector2` library extensions, ui helper functions|
@@ -31,34 +31,22 @@ a table of roblox-luau convenience modules
 ## design language
 
 ```lua
---- RobloxType
---- hulatype
-
 --- directives
---- services
---- variables
---- private functions
+
+--- RobloxType
+--- luautype
+--- hulatype
 
 --- namingconflict .. "h" (color3h, mathh)
 --- attribute flag prefix "h_"
 --- --- sideline commentary
 
---- x::y --- type solver
---- ;(x::any) = y --- type solver
---- ;(x::any).y = z --- type solver
-
 --- ### filename.luau /ipa/
 ---
 --- description
-local t = {
-	--- constants, sub-extensions
-}
+local t = {}
 
---- description \
---- shorthandedness is preferred for frequently-used functions (network.s, network.ms) or math variables \
---- at-length detail is preferred for all other names \
---- returns: \
---- `number x+y`
+--- description, return types, and nil-fallbacks, separated by line breaks \
 function t.incr(x: number, y: number)
 	--- ...
 

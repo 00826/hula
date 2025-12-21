@@ -14,7 +14,7 @@ end
 ---
 --- primitive type functions
 local types = {
-	Abbreviations = {"", "K", "M", "B", "T", "Qd", "Qt", "Sx", "Sp", "Oc", "No", "De"};
+	abbreviations = {"", "K", "M", "B", "T", "Qd", "Qt", "Sx", "Sp", "Oc", "No", "De"};
 }
 
 --- reads Vector3 from buffer
@@ -104,18 +104,18 @@ end
 --- returns `a == b` \
 --- `offset (?=0)` begin comparison at offset
 function types.compare(a: buffer, b: buffer, offset: number?)
-	local lenA = buffer.len(a)
-	local lenB = buffer.len(b)
+	local alen = buffer.len(a)
+	local blen = buffer.len(b)
 
 	offset = offset or 0
 	assert(offset) --- solver kick rocks
 
-	if lenA ~= lenB then
+	if alen ~= blen then
 		return false
-	elseif offset >= lenA then
+	elseif offset >= alen then
 		return true
 	else
-		local traverse = lenA - offset
+		local traverse = alen - offset
 		if traverse >= 4 then
 			--- print(`comparing u32 {buffer.readu32(a, offset)} against {buffer.readu32(b, offset)} at {offset}, {offset+4}/{lenA}`)
 			if buffer.readu32(a, offset) == buffer.readu32(b, offset) then
@@ -145,20 +145,20 @@ end
 --- `number result[1]` delta offset \
 --- `buffer result[2]` delta byte value
 function types.delta(a: buffer, b: buffer, offset: number?)
-	local lenA = buffer.len(a)
-	local lenB = buffer.len(b)
+	local alen = buffer.len(a)
+	local blen = buffer.len(b)
 
-	assert(lenA == lenB, "expected buffers to be of same-length when resolving delta")
+	assert(alen == blen, "expected buffers to be of same-length when resolving delta")
 
 	offset = offset or 0
 	assert(offset) --- solver kick rocks
 
 	local result = {}
 
-	if offset >= lenA then
+	if offset >= alen then
 		return result
 	else
-		local traverse = lenA - offset
+		local traverse = alen - offset
 		if traverse >= 4 then
 			if buffer.readu32(a, offset) ~= buffer.readu32(b, offset) then
 				local value = buffer.create(4)
@@ -966,30 +966,30 @@ end
 --- `alloc (?=size)`: `b.Items = table.create(alloc)`
 function types.createbook(size: number, alloc: number?)
 	return {
-		Offset = 1;
-		Size = size;
-		Items = table.create(alloc or size);
+		offset = 1;
+		size = size;
+		items = table.create(alloc or size);
 	}
 end
 
 --- advances book by `delta` (can be positive, negative, or zero!), returning: \
---- `page`: page of `pc.Items` with respect to `pc.Offset` and `pc.Size` \
---- `oldoffset`: previous `pc.Offset` \
---- `newoffset`: current `pc.Offset` \
+--- `page`: page of `pc.items` with respect to `pc.offset` and `pc.size` \
+--- `oldoffset`: previous `pc.offset` \
+--- `newoffset`: current `pc.offset` \
 --- `numpages`: max # of pages that can be displayed
 function types.booknext(b: typeof(types.createbook(...)), delta: number)
-	local len = #b.Items
-	local size = b.Size
+	local len = #b.items
+	local size = b.size
 
 	local numpages = math.clamp(math.ceil(len / size), 1, math.huge)
 
-	local oldoffset = b.Offset
-	local newoffset = math.clamp(b.Offset + delta, 1, numpages)
+	local oldoffset = b.offset
+	local newoffset = math.clamp(b.offset + delta, 1, numpages)
 
-	b.Offset = newoffset
+	b.offset = newoffset
 
 	return table.move(
-		b.Items,
+		b.items,
 		1 + math.clamp((newoffset - 1) * size, 0, len),
 		math.clamp(newoffset * size, 0, len),
 		1,
@@ -1179,17 +1179,17 @@ function types.hourminutesecond(time: number, notation: "DD:HH:MM:SS" | "HH:MM:S
 end
 
 --- returns a timestamp of current utc time with respect to format option or time in minutes
-function types.timestamp(format: "Hour" | "Biphase" | "Day" | "Week" | "Season" | "Biseason" | "Year" | number)
+function types.timestamp(format: "hour" | "halfday" | "day" | "week" | "season" | "biannual" | "year" | number)
 	local datetable = os.date("!*t") --- read from this table as a truth state
 	local datetablecopy = table.clone(datetable) --- write to this table, keys inherited from datetable
 
 	local timestamp = {
 		--- unique, non-recurring string describing format time
-		Id = "";
+		id = "";
 		--- unique, non-recurring number describing format time
-		Seed = 0;
+		seed = 0;
 		--- time until format changes
-		Until = 0;
+		change = 0;
 	}
 
 	if type(format) == "number" then
@@ -1203,19 +1203,19 @@ function types.timestamp(format: "Hour" | "Biphase" | "Day" | "Week" | "Season" 
 		datetablecopy.sec = 0
 
 		local year, yday, hour, qtrhour = datetable.year, datetable.yday, datetable.hour, math.ceil((datetable.min + 1) / format) - 1
-		timestamp.Id = string.format("%d_%d_%d_%d", year, yday, hour, qtrhour)
-		timestamp.Seed = tonumber(year .. yday .. hour .. qtrhour) :: number
+		timestamp.id = string.format("%d_%d_%d_%d", year, yday, hour, qtrhour)
+		timestamp.seed = tonumber(year .. yday .. hour .. qtrhour) :: number
 	else
-		if format == "Hour" then
+		if format == "hour" then
 			--- `February 14, 2024, 06:44` --> `"2024_45_6"`
 			datetablecopy.hour = math.floor(datetablecopy.hour + 1)
 			datetablecopy.min = 0
 			datetablecopy.sec = 0
 
 			local year, yday, hour = datetable.year, datetable.yday, datetable.hour
-			timestamp.Id = string.format("%d_%d_%d", year, yday, hour)
-			timestamp.Seed = tonumber(year .. yday .. hour) :: number
-		elseif format == "Biphase" then
+			timestamp.id = string.format("%d_%d_%d", year, yday, hour)
+			timestamp.seed = tonumber(year .. yday .. hour) :: number
+		elseif format == "halfday" then
 			--- `February 14, 2024, 06:44` --> `"2024_45_AM"`
 			--- `February 14, 2024, 16:44` --> `"2024_45_PM"`
 			datetablecopy.hour = 12 * math.ceil((datetablecopy.hour + 1) / 12)
@@ -1223,9 +1223,9 @@ function types.timestamp(format: "Hour" | "Biphase" | "Day" | "Week" | "Season" 
 			datetablecopy.sec = 0
 
 			local year, yday, phase = datetable.year, datetable.yday, os.date("!%p")
-			timestamp.Id = string.format("%d_%d_%s", year, yday, phase)
-			timestamp.Seed = tonumber(year .. yday .. string.byte(phase)) :: number
-		elseif format == "Day" then
+			timestamp.id = string.format("%d_%d_%s", year, yday, phase)
+			timestamp.seed = tonumber(year .. yday .. string.byte(phase)) :: number
+		elseif format == "day" then
 			--- `February 14, 2024` --> `"2024_45"`
 			datetablecopy.day += 1
 			datetablecopy.hour = 0
@@ -1233,9 +1233,9 @@ function types.timestamp(format: "Hour" | "Biphase" | "Day" | "Week" | "Season" 
 			datetablecopy.sec = 0
 
 			local year, yday = datetable.year, datetable.yday
-			timestamp.Id = string.format("%d_%d", year, yday)
-			timestamp.Seed = tonumber(year .. yday) :: number
-		elseif format == "Week" then
+			timestamp.id = string.format("%d_%d", year, yday)
+			timestamp.seed = tonumber(year .. yday) :: number
+		elseif format == "week" then
 			--- `February 14, 2024` --> `"2024_7_06"` (06th week of 2024)
 			datetablecopy.day += 8 - datetable.wday
 			datetablecopy.hour = 0
@@ -1243,9 +1243,9 @@ function types.timestamp(format: "Hour" | "Biphase" | "Day" | "Week" | "Season" 
 			datetablecopy.sec = 0
 
 			local year, week, yweek = datetable.year, datetable.wday, os.date("!%U")
-			timestamp.Id = string.format("%d_%d_%s", year, week, yweek)
-			timestamp.Seed = tonumber(year .. week .. yweek) :: number
-		elseif format == "Season" then
+			timestamp.id = string.format("%d_%d_%s", year, week, yweek)
+			timestamp.seed = tonumber(year .. week .. yweek) :: number
+		elseif format == "season" then
 			--- `February 14, 2024` --> `"2024_1"`
 			--- Mar-May: `1` (spring)
 			--- Jun-Aug: `2` (summer)
@@ -1258,9 +1258,9 @@ function types.timestamp(format: "Hour" | "Biphase" | "Day" | "Week" | "Season" 
 			datetablecopy.sec = 0
 
 			local year, month = datetable.year, math.ceil((1 + ((datetable.month - 3) % 12)) / 3)
-			timestamp.Id = string.format("%d_%d", year, month)
-			timestamp.Seed = tonumber(year .. month) :: number
-		elseif format == "Biseason" then
+			timestamp.id = string.format("%d_%d", year, month)
+			timestamp.seed = tonumber(year .. month) :: number
+		elseif format == "biannual" then
 			--- `February 14, 2024` --> `"2024_1"`
 			--- Jan-Jun: `1` (SS)
 			--- Jul-Dec: `2` (FW)
@@ -1271,9 +1271,9 @@ function types.timestamp(format: "Hour" | "Biphase" | "Day" | "Week" | "Season" 
 			datetablecopy.sec = 0
 
 			local year, month = datetable.year, math.ceil(datetable.month / 6)
-			timestamp.Id = string.format("%d_%d", year, month)
-			timestamp.Seed = tonumber(year .. month) :: number
-		elseif format == "Year" then
+			timestamp.id = string.format("%d_%d", year, month)
+			timestamp.seed = tonumber(year .. month) :: number
+		elseif format == "year" then
 			--- `February 14, 2024` --> `"2024"`
 			datetablecopy.year += 1
 			datetablecopy.month = 1
@@ -1282,12 +1282,12 @@ function types.timestamp(format: "Hour" | "Biphase" | "Day" | "Week" | "Season" 
 			datetablecopy.min = 0
 			datetablecopy.sec = 0
 
-			timestamp.Id = tostring(datetable.year)
-			timestamp.Seed = tonumber(datetable.year) :: number
+			timestamp.id = tostring(datetable.year)
+			timestamp.seed = tonumber(datetable.year) :: number
 		end
 	end
 
-	timestamp.Until = os.time(datetablecopy) - os.time(datetable)
+	timestamp.change = os.time(datetablecopy) - os.time(datetable)
 
 	return timestamp
 end
@@ -1306,7 +1306,7 @@ end
 --- abbreviates number, decimals separated by `dsep (?=".")`, truncated by `places (?=1)`
 function types.abbreviatenumber(x: number, places: number?, dsep: string?)
 	local exp = math.floor(math.log(math.max(1, math.abs(x)), 1000))
-	local suffix = types.Abbreviations[1 + exp] or ("e+" .. exp)
+	local suffix = types.abbreviations[1 + exp] or ("e+" .. exp)
 
 	return string.gsub(tostring(math.floor(x * ((10 ^ (places or 1)) / (1000 ^ exp))) / (10 ^ (places or 1))), "[.]", dsep or ".") .. suffix
 end

@@ -147,64 +147,64 @@ end
 --- connects button events to `guibutton`
 function gui.connectbutton(button: GuiButton, functions: {
 	--- `MouseButton1Down`
-	ClickDown: (x: number, y: number) -> ()?;
+	clickdown: (x: number, y: number) -> ()?;
 	--- `MouseButton1Up`
-	ClickUp: (x: number, y: number) -> ()?;
+	clickup: (x: number, y: number) -> ()?;
 	--- `MouseButton2Down`
-	RClickDown: (x: number, y: number) -> ()?;
+	rclickdown: (x: number, y: number) -> ()?;
 	--- `MouseButton2Up`
-	RClickUp: (x: number, y: number) -> ()?;
+	rclickup: (x: number, y: number) -> ()?;
 	--- `MouseEnter` \
 	--- `SelectionGained`
-	Enter: (x: number, y: number) -> ()?;
+	enter: (x: number, y: number) -> ()?;
 	--- `MouseLeave` \
 	--- `SelectionLost`
-	Leave: (x: number, y: number) -> ()?;
+	leave: (x: number, y: number) -> ()?;
 	--- `MouseMoved`
-	Move: (x: number, y: number) -> ()?;
+	move: (x: number, y: number) -> ()?;
 	--- `MouseWheelForward`
-	ScrollUp: (x: number, y: number) -> ()?;
+	scrollup: (x: number, y: number) -> ()?;
 	--- `MouseWheelBackward`
-	ScrollDown: (x: number, y: number) -> ()?;
+	scrolldown: (x: number, y: number) -> ()?;
 })
 	local connections = table.create(11)
 
-	if functions.ClickDown then
-		table.insert(connections, button.MouseButton1Down:Connect(functions.ClickDown))
+	if functions.clickdown then
+		table.insert(connections, button.MouseButton1Down:Connect(functions.clickdown))
 	end
-	if functions.ClickUp then
-		table.insert(connections, button.MouseButton1Up:Connect(functions.ClickUp))
-	end
-
-	if functions.RClickDown then
-		table.insert(connections, button.MouseButton2Down:Connect(functions.RClickDown))
-	end
-	if functions.RClickUp then
-		table.insert(connections, button.MouseButton2Up:Connect(functions.RClickUp))
+	if functions.clickup then
+		table.insert(connections, button.MouseButton1Up:Connect(functions.clickup))
 	end
 
-	if functions.Enter then
-		table.insert(connections, button.MouseEnter:Connect(functions.Enter))
+	if functions.rclickdown then
+		table.insert(connections, button.MouseButton2Down:Connect(functions.rclickdown))
+	end
+	if functions.rclickup then
+		table.insert(connections, button.MouseButton2Up:Connect(functions.rclickup))
+	end
+
+	if functions.enter then
+		table.insert(connections, button.MouseEnter:Connect(functions.enter))
 		table.insert(connections, button.SelectionGained:Connect(function()
 			local vec2 = UserInputService:GetMouseLocation()
-			functions.Enter(vec2.X, vec2.Y)
+			functions.enter(vec2.X, vec2.Y)
 		end))
 	end
-	if functions.Leave then
-		table.insert(connections, button.MouseLeave:Connect(functions.Leave))
+	if functions.leave then
+		table.insert(connections, button.MouseLeave:Connect(functions.leave))
 		table.insert(connections, button.SelectionLost:Connect(function()
 			local vec2 = UserInputService:GetMouseLocation()
-			functions.Leave(vec2.X, vec2.Y)
+			functions.leave(vec2.X, vec2.Y)
 		end))
 	end
-	if functions.Move then
-		table.insert(connections, button.MouseMoved:Connect(functions.Move))
+	if functions.move then
+		table.insert(connections, button.MouseMoved:Connect(functions.move))
 	end
-	if functions.ScrollUp then
-		table.insert(connections, button.MouseWheelForward:Connect(functions.ScrollUp))
+	if functions.scrollup then
+		table.insert(connections, button.MouseWheelForward:Connect(functions.scrollup))
 	end
-	if functions.ScrollDown then
-		table.insert(connections, button.MouseWheelBackward:Connect(functions.ScrollDown))
+	if functions.scrolldown then
+		table.insert(connections, button.MouseWheelBackward:Connect(functions.scrolldown))
 	end
 
 	return connections
@@ -315,24 +315,24 @@ end
 --- creates a textqueue, used for displaying text messages
 function gui.createtextqueue(textobject: TextLabel, separator: string, alloc: number?)
 	return {
-		Queue = table.create(alloc or 16) :: { {string|number} };
-		Separator = separator;
-		TextObject = textobject;
+		queue = table.create(alloc or 16) :: { {string|number} };
+		separator = separator;
+		textobject = textobject;
 	}
 end
 
 --- inserts text into textqueue
 function gui.textqueueinsert(tq: typeof(gui.createtextqueue(...)), text: string, expiry: number, front: boolean?)
 	if front == true then
-		table.insert(tq.Queue, 1, {text, expiry::any})
+		table.insert(tq.queue, 1, {text, expiry::any})
 	else
-		table.insert(tq.Queue, {text, expiry::any})
+		table.insert(tq.queue, {text, expiry::any})
 	end
 end
 
 --- advances textqueue, removing any expired text
 function gui.textqueuestep(tq: typeof(gui.createtextqueue(...)), now: number)
-	local queue = tq.Queue
+	local queue = tq.queue
 	for i = #queue, 1, -1 do
 		local expiry = queue[i][2]::number
 		if expiry < now then
@@ -341,14 +341,14 @@ function gui.textqueuestep(tq: typeof(gui.createtextqueue(...)), now: number)
 	end
 
 	local len = #queue
-	local textobject = tq.TextObject
+	local textobject = tq.textobject
 	if len < 1 then
 		textobject.Text = ""
 	elseif len == 1 then
 		textobject.Text = queue[1][1]::string
 	else
 		local concat = ""
-		local sep = tq.Separator
+		local sep = tq.separator
 		for i, entry in ipairs(queue) do
 			local text = entry[1]::string
 			if i < len then

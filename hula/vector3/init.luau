@@ -128,13 +128,13 @@ function vector3h.nextunitspread(v: Vector3, radians: number, R: Random?)
 
 	--- generate a random point within the spherical cap (from unit sphere)
 	--- produces spherical coordinates
-	local cosTheta = (R or Rand):NextNumber(math.cos(radians), 1)
-	local sinTheta = (1 - cosTheta * cosTheta)^0.5
+	local cos = (R or Rand):NextNumber(math.cos(radians), 1)
+	local sin = (1 - cos * cos)^0.5
 	local phi = (R or Rand):NextNumber(0, 2*math.pi)
 
-	local x = sinTheta * math.cos(phi)
-	local y = sinTheta * math.sin(phi)
-	local z = cosTheta
+	local x = sin * math.cos(phi)
+	local y = sin * math.sin(phi)
+	local z = cos
 
 	--- construct the random vector in the original coordinate system
 	return (((x*u)::any + (y*w)::any + (z*v)::any)::any)::Vector3
@@ -215,12 +215,12 @@ end
 --- interpolates between unit vector `v` and unit vector `w` with respect to interpolant `t` \
 --- axisangle is the goat
 function vector3h.slerp(v: Vector3, w: Vector3, t: number)
-	local magA = vector.magnitude(v::any)
-	local magB = vector.magnitude(w::any)
+	local alen = vector.magnitude(v::any)
+	local blen = vector.magnitude(w::any)
 
-	if magA == 0 and magB == 0 then
+	if alen == 0 and blen == 0 then
 		return Vector3.zero
-	elseif magA == 0 then
+	elseif alen == 0 then
 		if t < 1 then
 			return Vector3.zero
 		elseif t == 1 then
@@ -228,7 +228,7 @@ function vector3h.slerp(v: Vector3, w: Vector3, t: number)
 		else
 			return math.huge*w
 		end
-	elseif magB == 0 then
+	elseif blen == 0 then
 		if t < 0 then
 			return math.huge*v
 		elseif t == 0 then
@@ -238,30 +238,30 @@ function vector3h.slerp(v: Vector3, w: Vector3, t: number)
 		end
 	end
 
-	local magC = magA^(1 - t)*magB^t --- final magnitude
+	local clen = alen^(1 - t)*blen^t --- final magnitude
 
 	-- get k*cosine and k*sine components of the angle between v and w
-	local cosine = vector.dot(v::any, w::any)
-	local sine = vector.magnitude(vector.cross(v::any, w::any))
+	local cos = vector.dot(v::any, w::any)
+	local sin = vector.magnitude(vector.cross(v::any, w::any))
 
-	local unitA = (vector.normalize(v::any)::any)::Vector3
-	local unitB = (vector.normalize(w::any)::any)::Vector3
+	local aunitvector = (vector.normalize(v::any)::any)::Vector3
+	local bunitvector = (vector.normalize(w::any)::any)::Vector3
 
 	-- more degenerate cases
-	if cosine < 0 and sine < -1e-16*cosine then --- this test sees, in a stable way, if they are opposite and abs(tan(angle)) < 1e-16
+	if cos < 0 and sin < -1e-16*cos then --- this test sees, in a stable way, if they are opposite and abs(tan(angle)) < 1e-16
 		if t%2 < 1/2 or t%2 >= 3/2 then
-			return magC*unitA
+			return clen*aunitvector
 		else
-			return magC*unitB
+			return clen*bunitvector
 		end
-	elseif cosine > 0 and sine < 1e-16*cosine then --- this test sees, in a stable way, if they are in the same direction and abs(tan(angle)) < 1e-16
-		return magC*(vector.normalize((1 - t)*unitA + t*unitB::any)::any)
+	elseif cos > 0 and sin < 1e-16*cos then --- this test sees, in a stable way, if they are in the same direction and abs(tan(angle)) < 1e-16
+		return clen*(vector.normalize((1 - t)*aunitvector + t*bunitvector::any)::any)
 	end
-	local angle = math.atan2(sine, cosine)
+	local angle = math.atan2(sin, cos)
 
-	local unitC = (vector.normalize(math.sin((1 - t)*angle)*unitA + math.sin(t*angle)*unitB::any)::any)::Vector3
+	local cunitvector = (vector.normalize(math.sin((1 - t)*angle)*aunitvector + math.sin(t*angle)*bunitvector::any)::any)::Vector3
 
-	return magC*unitC
+	return clen*cunitvector
 end
 
 --- returns `point` transformed to objectspace of `position, lookvector, upvector(?=Vector3.yAxis)` \
