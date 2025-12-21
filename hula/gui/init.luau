@@ -213,11 +213,11 @@ end
 --- applies `sprite` to `imagelabel`
 function gui.sprite(imagelabel: ImageLabel, sprite: typeof(
 	{
-		Position = 0;
-		Layout = {
-			ContentId = (nil::any)::(typeof(Content.none) | string);
-			Size = Vector2.zero;
-			Width = 0;
+		position = 0;
+		layout = {
+			contentid = (nil::any)::(typeof(Content.none) | string);
+			size = Vector2.zero;
+			width = 0;
 		};
 	})?
 )
@@ -229,10 +229,10 @@ function gui.sprite(imagelabel: ImageLabel, sprite: typeof(
 		return
 	end
 
-	local layout = sprite.Layout
+	local layout = sprite.layout
 
 	if layout then
-		local content = layout.ContentId
+		local content = layout.contentid
 		if type(content) == "number" then
 			imagelabel.ImageContent = Content.fromAssetId(content)
 		elseif type(content) == "string" then
@@ -241,8 +241,8 @@ function gui.sprite(imagelabel: ImageLabel, sprite: typeof(
 			imagelabel.ImageContent = content
 		end
 
-		local x, y = cartesian(sprite.Position, layout.Width)
-		local size = layout.Size
+		local x, y = cartesian(sprite.position, layout.width)
+		local size = layout.size
 		imagelabel.ImageRectSize = size
 		imagelabel.ImageRectOffset = Vector2.new(y * size.X, x * size.Y)
 	else
