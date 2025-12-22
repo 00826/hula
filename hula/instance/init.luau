@@ -976,10 +976,28 @@ end
 function instanceh.istransparencymodifiable(thing: Instance)
 	if thing:IsA("BasePart") then
 		return true
+	elseif thing:IsA("Beam") then
+		return true
 	elseif thing:IsA("Decal") then
 		return true
+	elseif thing:IsA("Explosion") then
+		return true
+	elseif thing:IsA("Fire") then
+		return true
+	elseif thing:IsA("ParticleEmitter") then
+		return true
+	elseif thing:IsA("Smoke") then
+		return true
+	elseif thing:IsA("Sparkles") then
+		return true
+	elseif thing:IsA("Trail") then
+		return true
+		
+		--- exceptions
 	elseif thing:FindFirstAncestorOfClass("Tool") then
 		return false
+	elseif thing:IsA("HandleAdornment") then
+		return true
 	end
 
 	return false
@@ -1009,7 +1027,11 @@ function instanceh.createtransparencycontroller(thing: Instance)
 	controller.descendantadded = thing.DescendantAdded:Connect(function(thisthing: any)
 		if instanceh.istransparencymodifiable(thisthing) and not table.find(controller.cache, thisthing) then
 			table.insert(controller.cache, thisthing)
-			thisthing.LocalTransparencyModifier = controller.realtransparency
+			if thisthing:IsA("HandleAdornment") then
+				thisthing.Visible = controller.realtransparency ~= 1
+			else
+				thisthing.LocalTransparencyModifier = controller.realtransparency
+			end
 		end
 	end)
 	controller.descendantremoving = thing.DescendantRemoving:Connect(function(thisthing: any)
@@ -1040,7 +1062,11 @@ function instanceh.transparencycontrollerstep(tc: typeof(instanceh.createtranspa
 	local target = tc.targettransparency
 	if target ~= tc.realtransparency then
 		for _, thing: any in tc.cache do
-			thing.LocalTransparencyModifier = target
+			if thing:IsA("HandleAdornment") then
+				thing.Visible = target ~= 1
+			else
+				thing.LocalTransparencyModifier = target
+			end
 		end
 		tc.realtransparency = target
 

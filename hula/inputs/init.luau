@@ -122,9 +122,24 @@ function inputs.setmouseicon(icon: string?)
 	UserInputService.MouseIcon = icon or ""
 end
 
+--- returns `UserInputService.MouseIconEnabled`
+function inputs.mouseiconenabled()
+	return UserInputService.MouseIconEnabled
+end
+
+--- equivalent to `UserInputService.MouseIconEnabled = enabled`
+function inputs.setmouseiconenabled(enabled: boolean)
+	UserInputService.MouseIconEnabled = enabled
+end
+
 --- returns `UserInputService.TouchTapInWorld`
 function inputs.touchtapinworld()
 	return UserInputService.TouchTapInWorld
+end
+
+--- returns `UserInputService.TouchEnabled`
+function inputs.touchenabled()
+	return UserInputService.TouchEnabled
 end
 
 --- calls `GamepadService:EnableGamepadCursor(target)` or `GamepadService:DisableGamepadCursor()` depending on state
