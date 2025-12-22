@@ -818,7 +818,7 @@ function types.reconcile(t: {}, diff: typeof(types.diff(...)))
 					t[i] = {}
 				end
 				if next(v) == nil then
-					table.clear(t[i])
+					types.rbxtypeclear(t[i])
 				end
 
 				types.reconcile(t[i], v)
@@ -833,6 +833,9 @@ function types.reconcile(t: {}, diff: typeof(types.diff(...)))
 					t[i] = b::any
 				end
 			elseif v == "nil" then
+				if type(t[i]) == "table" then
+					types.rbxtypeclear(t[i])
+				end
 				t[i] = nil
 			else
 				t[i] = v
@@ -851,7 +854,7 @@ function types.reconcile(t: {}, diff: typeof(types.diff(...)))
 					t[k] = {}
 				end
 				if next(v) == nil then
-					table.clear(t[k])
+					types.rbxtypeclear(t[k])
 				end
 
 				types.reconcile(t[k], v)
@@ -866,6 +869,9 @@ function types.reconcile(t: {}, diff: typeof(types.diff(...)))
 					t[k] = b::any
 				end
 			elseif v == "nil" then
+				if type(t[k]) == "table" then
+					types.rbxtypeclear(t[k])
+				end
 				t[k] = nil
 			else
 				t[k] = v
@@ -1085,6 +1091,29 @@ end
 function types.incr<T>(t: {[T]: number}, a: T, b: number)
 	--- ta
 	t[a] = (t[a] or 0) + b
+end
+
+--- recursive, roblox-type-friendly table.clear(); handles destruction of: \
+--- `typeof(t[k]) == "Instance" -> Destroy()` \
+--- `typeof(t[k]) == "RBXScriptConnection" -> Disconnect()` \
+--- `typeof(t[k]) == "thread" -> task.cancel(v)`
+function types.rbxtypeclear(a: any)
+	if type(a) == "table" then
+		for _, b in a do
+			types.rbxtypeclear(b)
+		end
+		table.clear(a)
+
+	elseif typeof(a) == "Instance" then
+		a:Destroy()
+
+	elseif typeof(a) == "RBXScriptConnection" then
+		a:Disconnect()
+
+	elseif typeof(a) == "thread" then
+		task.cancel(a)
+
+	end
 end
 
 --- returns a randomized alphanumeric string \
