@@ -5,8 +5,8 @@ local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
-local function tween(object: Instance, properties: {[string]: any}, time: number, ...)
-	TweenService:Create(object, TweenInfo.new(time, ...), properties):Play()
+local function tween(object: Instance, properties: {[string]: any}, time: number, style: Enum.EasingStyle?, ...)
+	TweenService:Create(object, TweenInfo.new(time, style or Enum.EasingStyle.Linear, ...), properties):Play()
 end
 
 local function cartesian(p: number, w: number)

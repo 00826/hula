@@ -458,6 +458,64 @@ function instanceh.conehandleadornment(
 	return adornment
 end
 
+--- instantiates a `PyramidHandleAdornment` with initial properties `a` and optionally-transforms it toward goal `b`
+function instanceh.pyramidhandleadornment(
+	a: {
+		at: CFrame|Vector3;
+
+		sides: number;
+		size: number;
+		height: number;
+	} & adornmentbase,
+	b: ({
+		at: CFrame|Vector3?;
+
+		sides: number?;
+		size: number?;
+		height: number?;
+	} & adornmentbase & adornmenttransform)?
+)
+	local adornment = Instance.new("PyramidHandleAdornment")
+	setadornmentbaseproperties(adornment, a)
+	
+	adornment.Sides = a.sides
+	adornment.Size = a.size
+	adornment.Height = a.height
+
+	if b then
+		local to = b.at
+		local goal = {
+			Adornee = b.adornee;
+			AdornCullingMode = b.adorncullingmode;
+			SizeRelativeOffset = b.sizerelativeoffset;
+			AlwaysOnTop = b.alwaysontop;
+			ZIndex = b.zindex;
+
+			Color3 = b.color;
+			Transparency = b.transparency;
+			Visible = b.visible;
+
+			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
+			
+			Sides = b.height;
+			Size = b.size;
+			Height = b.height;
+
+			Parent = b.parent;
+		}
+
+		if next(goal) ~= nil then
+			instanceh.tween(adornment, goal, b.time)
+		end
+
+		if b.destroy then
+			task.delay(b.time, adornment.Destroy, adornment)
+		end
+	end
+
+	return adornment
+end
+
 --- instantiates a `CylinderHandleAdornment` with initial properties `a` and optionally-transforms it toward goal `b`
 function instanceh.cylinderhandleadornment(
 	a: {
