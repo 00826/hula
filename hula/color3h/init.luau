@@ -1,6 +1,6 @@
 --!strict
 
---- ### color3.luau
+--- ### color3h.luau
 ---
 --- Color3 library extension
 local color3h = {

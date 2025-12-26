@@ -3,7 +3,7 @@
 
 local Rand = Random.new()
 
---- ### vector3.luau
+--- ### vector3h.luau
 ---
 --- Vector3 library extension
 local vector3h = {

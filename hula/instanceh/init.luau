@@ -7,7 +7,7 @@ local InsertService = game:GetService("InsertService")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 
---- ### Instance.luau
+--- ### instanceh.luau
 ---
 --- Instance library extension
 local instanceh = {

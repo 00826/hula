@@ -18,15 +18,15 @@ a table of roblox-luau convenience modules
 |-|-|
 |[hula](./hula/init.luau)|table|
 |-|-|
-|[color3.luau](./hula/color3/init.luau)|`Color3`, `ColorSequence` library extension|
+|[color3h.luau](./hula/color3h/init.luau)|`Color3`, `ColorSequence` library extension|
 |[gui.luau](./hula/gui/init.luau)|`UDim`, `UDim2`, `Vector2` library extensions, ui helper functions|
 |[inputs.luau](./hula/inputs/init.luau)|`UserInputService`, `GamepadService` wrapper|
-|[instance.luau](./hula/instance/init.luau)|`Instance` library extension|
-|[math.luau](./hula/math/init.luau)|`math`, `NumberRange`, `NumberSequence` library extension|
+|[instanceh.luau](./hula/instanceh/init.luau)|`Instance` library extension|
+|[mathh.luau](./hula/mathh/init.luau)|`math`, `NumberRange`, `NumberSequence` library extension|
 |[net.luau](./hula/net/init.luau)|buffer-based remote interface, oopless signals, server-authoritative unix time (`DateTime.now()`)|
 |[patronage.luau](./hula/patronage/init.luau)|player patronage (devproducts, gamepasses, premium, group membership, etc)|
 |[types.luau](./hula/types/init.luau)|primitive type functions|
-|[vector3.luau](./hula/vector3/init.luau)|`Vector3` library extension|
+|[vector3h.luau](./hula/vector3h/init.luau)|`Vector3` library extension|
 
 ## design language
 

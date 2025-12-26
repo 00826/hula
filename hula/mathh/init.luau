@@ -1,7 +1,7 @@
 --!strict
 --!native
 
---- ### math.luau
+--- ### mathh.luau
 ---
 --- math library extension
 local mathh = {
