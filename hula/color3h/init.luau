@@ -1,6 +1,8 @@
 --!strict
 
---- ### color3h.luau
+local Rand = Random.new()
+
+--- ### color3.luau
 ---
 --- Color3 library extension
 local color3h = {
@@ -342,6 +344,20 @@ end
 --- returns `color3 * x`
 function color3h.mul(c: Color3, x: number)
 	return Color3.new(c.R * x, c.G * x, c.B * x)
+end
+
+--- returns `Color3.new(random[0, 1], random[0, 1], random[0, 1])`
+function color3h.nextcolor(R: Random?)
+	return Color3.new(
+		(R or Rand):NextNumber(),
+		(R or Rand):NextNumber(),
+		(R or Rand):NextNumber()
+	)
+end
+
+--- returns `BrickColor.Random().Color`
+function color3h.nextbrickcolor()
+	return BrickColor.Random().Color
 end
 
 --- returns color3 with respect to player name
