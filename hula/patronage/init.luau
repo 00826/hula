@@ -6,6 +6,7 @@ local IsServer = RunService:IsServer()
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
+local AvatarEditorService = game:GetService("AvatarEditorService")
 local HttpService = game:GetService("HttpService")
 local LocalizationService = game:GetService("LocalizationService")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -18,6 +19,16 @@ local patronage = {
 	regionflag = "h_region"; --- for external use
 	policyflag = "h_policyinfo"; --- for external use
 }
+
+--- returns `pcall(AvatarEditorService.PromptSetFavorite, AvatarEditorService, assetid, avataritemtype, shouldfavorite)`
+function patronage.promptsetfavorite(assetid: number, avataritemtype: Enum.AvatarItemType, shouldfavorite: boolean)
+	return pcall(AvatarEditorService.PromptSetFavorite, AvatarEditorService, assetid, avataritemtype, shouldfavorite)
+end
+
+--- returns `AvatarEditorService.PromptSetFavoriteCompleted`
+function patronage.promptsetfavoritecompleted()
+	return AvatarEditorService.PromptSetFavoriteCompleted
+end
 
 --- returns `pcall(a.IsInGroup, a, groupid)`
 function patronage.isingroup(a: Player, groupid: number)

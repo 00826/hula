@@ -10,8 +10,6 @@ local RemoteEvent = script:WaitForChild("RemoteEvent")
 local UnreliableRemoteEvent = script:WaitForChild("UnreliableRemoteEvent")
 local UnixTimestampRemote = script:WaitForChild("UnixTimestampRemote")
 
-local hooks = {}
-
 --- writes signed 24-bit integer to buffer
 local function writei24(b: buffer, offset: number, value: number)
 	local bitoffset = offset * 8
@@ -120,91 +118,109 @@ end
 local net = {
 	unixbuffer = buffer.create(8);
 	framerate = 1/60;
-	scopes = table.create(255);
+	
+	ports = {};
+	ships = table.create(255);
 	queue = table.create(64);
+	
+	hooks = {};
 }
 
---- returns net scope, creating one if it does not already exist
-function net.scope(scope: string)
-	local i
-	for thisi, thisscope in net.scopes do
-		if thisscope == scope then
-			i = thisi
-			break
-		end
-	end
+function net.port(key: string)
+	if not net.ports[key] then
+		net.ports[key] = {
+			functions = {}
+		}
 
-	if not i then
-		assert(IsServer, string.format("unknown scope %s", scope))
-		assert(#net.scopes <= 2^8-1, "net at max scopes (uint8 limit)")
-		table.insert(net.scopes, scope)
-		
-		i = table.find(net.scopes, scope)::any
-		script:SetAttribute(scope, i)
-	end
-
-	return i
-end
-
---- sends value to net scope \
---- `force(="Reliable"|"Unreliable")`: forces remoteevent when this value is sent \
---- `force(=nil)`: automatically resolves remoteevent wrt value size \
---- `front(=true)`: value is inserted to front of queue \
---- `front(=false|nil)`: value is inserted to back of queue
-function net.send(scope: string, value: any, client:
-	| nil
-	| number
-	| Player
-	| { number|Player }
-	| (Player) -> boolean,
-	force: "Reliable"|"Unreliable"?,
-	front: boolean?
-)
-	local u8scope = net.scope(scope)
-
-	local unscoped, instances = net.pack(value)
-	local scoped = writescope(unscoped, u8scope)
-
-	if front == true then
-		table.insert(net.queue, 1, {scoped::any, instances::any, client::any, force::any})
-	else
-		table.insert(net.queue, {scoped::any, instances::any, client::any, force::any})
-	end
-end
-
---- receives value from net scope
-function net.recv(scope: string, recv: ((value: any) -> ()) & (player: Player, value: any) -> ())
-	if IsServer then
-		--- add scope if doesnt already exist
-		local u8scope = net.scope(scope)
-
-		local function serverrecv(player: Player, s: buffer, i: {Instance})
-			assertrecvtypes(s, i)
-
-			if u8scope == readscope(s) then
-				local value = net.unpack(removescope(s), 0, i)
-				recv(player, value)
+		--- look for ship
+		if not table.find(net.ships, key) then
+			if IsServer then
+				--- make one
+				assert(#net.ships <= 2^8-1, "net at max ships (uint8 limit)")
+				table.insert(net.ships, key)
+					
+				local ship = table.find(net.ships, key)
+				assert(ship, "this should not happen") --- somehow wasnt inserted despite literally being inserted 3 lines earlier
+				script:SetAttribute(key, ship)
+			else
+				--- to bad!
+				warn(string.format("net unknown ship %s", key))
 			end
 		end
 
-		return 
-			RemoteEvent.OnServerEvent:Connect(serverrecv),
-			UnreliableRemoteEvent.OnServerEvent:Connect(serverrecv)
-	else
-		local function clientrecv(s: buffer, i: {Instance})
-			assertrecvtypes(s, i)
+		local port = net.ports[key]
 
-			local u8scope = net.scope(scope)
-			if u8scope == readscope(s) then
-				local value = net.unpack(removescope(s), 0, i)
-				recv(value)
+		--- queues value to be sent through this port \
+		--- `force(="Reliable"|"Unreliable")`: forces remoteevent when this value is sent \
+		--- `force(=nil)`: automatically resolves remoteevent wrt value size \
+		--- `front(=true)`: value is inserted to front of queue \
+		--- `front(=false|nil)`: value is inserted to back of queue
+		port.fire = function(value: any, client:
+			| nil
+			| number
+			| Player
+			| { number|Player }
+			| (Player) -> boolean,
+			force: "Reliable"|"Unreliable"?,
+			front: boolean?
+		)
+			local ship = table.find(net.ships, key)
+			assert(ship, "net unknown ship %s", key)
+
+			local unscoped, instances = net.pack(value)
+			local scoped = writescope(unscoped, ship or 0)
+
+			if front == true then
+				table.insert(net.queue, 1, {scoped::any, instances::any, client::any, force::any})
+			else
+				table.insert(net.queue, {scoped::any, instances::any, client::any, force::any})
 			end
 		end
 
-		return 
-			RemoteEvent.OnClientEvent:Connect(clientrecv),
-			UnreliableRemoteEvent.OnClientEvent:Connect(clientrecv)
+		--- connects function to this port \
+		--- returns `{ RBXScriptConnection } C`: where \
+		--- ... `C[1] = RemoteEvent.On[Client/Server]Event` \
+		--- ... `C[2] = UnreliableRemoteEvent.On[Client/Server]Event` 
+		port.connect = function(f: ((value: any) -> ()) & (player: Player, value: any) -> ())
+			if IsServer then
+				local function serverrecv(player: Player, s: buffer, i: {Instance})
+					local ship = table.find(net.ships, key)
+					assert(ship, "net unknown ship %s", key)
+
+					assertrecvtypes(s, i)
+
+					if ship == readscope(s) then
+						local value = net.unpack(removescope(s), 0, i)
+						f(player, value)
+					end
+				end
+
+				return {
+					RemoteEvent.OnServerEvent:Connect(serverrecv),
+					UnreliableRemoteEvent.OnServerEvent:Connect(serverrecv)
+				}
+			else
+				local function clientrecv(s: buffer, i: {Instance})
+					local ship = table.find(net.ships, key)
+					assert(ship, "net unknown ship %s", key)
+
+					assertrecvtypes(s, i)
+
+					if ship == readscope(s) then
+						local value = net.unpack(removescope(s), 0, i)
+						f(value)
+					end
+				end
+
+				return {
+					RemoteEvent.OnClientEvent:Connect(clientrecv),
+					UnreliableRemoteEvent.OnClientEvent:Connect(clientrecv)
+				}
+			end
+		end
 	end
+
+	return net.ports[key]
 end
 
 --- unsigned integer lookup
@@ -621,14 +637,14 @@ end
 
 --- returns hooked-function table `<H>` \
 --- functions are deferred
-function net.hook(name: string)
-	if not hooks[name] then
-		hooks[name] = {
+function net.hook(key: string)
+	if not net.hooks[key] then
+		net.hooks[key] = {
 			functions = {};
 			onces = {};
 			yields = {};
 		}
-		local hook = hooks[name]
+		local hook = net.hooks[key]
 
 		--- recursively resumes yielded threads
 		local function resume(...: any)
@@ -696,11 +712,11 @@ function net.hook(name: string)
 			table.clear(hook.onces)
 			
 			table.clear(hook)
-			hooks[name] = nil
+			net.hooks[key] = nil
 		end
 	end
 
-	return hooks[name]
+	return net.hooks[key]
 end
 
 --- returns server-authoritative unix time in seconds
@@ -841,15 +857,15 @@ else
 		end)
 	end
 
-	do --- scopes
-		script.AttributeChanged:Connect(function(scope: string)
-			local i = script:GetAttribute(scope)
+	do --- ships
+		script.AttributeChanged:Connect(function(key: string)
+			local i = script:GetAttribute(key)
 			assert(type(i) == "number")
-			net.scopes[i] = scope
+			net.ships[i] = key
 		end)
-		for scope, i in script:GetAttributes() do
+		for key, i in script:GetAttributes() do
 			assert(type(i) == "number")
-			net.scopes[i] = scope
+			net.ships[i] = key
 		end
 	end
 

@@ -148,12 +148,19 @@ function vector3h.nextpointinbounds(v: Vector3, w: Vector3, R: Random?)
 		+ (Vector3.zAxis * (R or Rand):NextNumber(v.Z, w.Z))
 end
 
---- returns random point in `x,z` radius
+--- returns random point *in* `x,z` radius
 function vector3h.nextpointinradius(radius: number, R: Random?)
 	local r = radius * ((R or Rand):NextNumber()^0.5)
 	local theta = (R or Rand):NextNumber() * 2 * math.pi
 
 	return (Vector3.xAxis * r * math.cos(theta)) + (Vector3.zAxis * r * math.sin(theta))
+end
+
+--- returns random point *on* `x,z` radius
+function vector3h.nextpointonradius(radius: number, R: Random?)
+	local theta = (R or Rand):NextNumber() * 2 * math.pi
+	
+	return Vector3.new(radius * math.cos(theta), 0, radius * math.sin(theta))
 end
 
 --- returns true if `v` and `w` are coplanar along unit vector `u`

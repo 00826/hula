@@ -472,9 +472,13 @@ function types.barunpack(b: buffer)
 	end
 end
 
---- returns 9-wide state `[f64 expiry, u8 value]`
-function types.createstate()
-	return buffer.create(9)
+--- returns 9-wide state `[f64 expiry (?=0), u8 value (?=1)]`
+function types.createstate(time: number?, value: number?)
+	local s = buffer.create(9)
+	buffer.writef64(s, 0, time or 0)
+	buffer.writeu8(s, 8, value or 1)
+
+	return s
 end
 
 --- returns `f64` state expiry
@@ -987,7 +991,7 @@ function types.booknext(b: typeof(types.createbook(...)), delta: number)
 	local len = #b.items
 	local size = b.size
 
-	local numpages = math.clamp(math.ceil(len / size), 1, math.huge)
+	local numpages = math.clamp(-(len // -size), 1, math.huge)
 
 	local oldoffset = b.offset
 	local newoffset = math.clamp(b.offset + delta, 1, numpages)
@@ -1207,10 +1211,22 @@ function types.hourminutesecond(time: number, notation: "DD:HH:MM:SS" | "HH:MM:S
 	return hms
 end
 
+local function monthtoseason(m: number)
+	--- m -= 3 --- shift by 3 months
+	--- m %= 12 --- rotate around 12 months
+	--- m //= 3 --- 12/3 = 4 seasons
+	--- m += 1 --- non-zero
+	if m > 12 then
+		m %= 12
+	end
+
+	return 1 + (((m - 3) % 12) // 3)
+end
+
 --- returns a timestamp of current utc time with respect to format option or time in minutes
-function types.timestamp(format: "hour" | "halfday" | "day" | "week" | "season" | "biannual" | "year" | number)
+function types.timestamp(format: "hour" | "halfday" | "day" | "week" | "month" | "season" | "biannual" | "year" | number)
 	local datetable = os.date("!*t") --- read from this table as a truth state
-	local datetablecopy = table.clone(datetable) --- write to this table, keys inherited from datetable
+	local nextdatetable = table.clone(datetable) --- write to this table, keys inherited from datetable
 
 	local timestamp = {
 		--- unique, non-recurring string describing format time
@@ -1228,18 +1244,18 @@ function types.timestamp(format: "hour" | "halfday" | "day" | "week" | "season" 
 		--- `February 14, 2024, 06:44` --> `"2024_45_6_4"`
 		--- `Format: 15`
 		--- `February 14, 2024, 06:44` --> `"2024_45_6_2"`
-		datetablecopy.min = format * math.ceil((datetablecopy.min + 1) / format)
-		datetablecopy.sec = 0
+		nextdatetable.min = format * -((nextdatetable.min + 1) // -format)
+		nextdatetable.sec = 0
 
-		local year, yday, hour, qtrhour = datetable.year, datetable.yday, datetable.hour, math.ceil((datetable.min + 1) / format) - 1
+		local year, yday, hour, qtrhour = datetable.year, datetable.yday, datetable.hour, -((nextdatetable.min + 1) // -format) - 1
 		timestamp.id = string.format("%d_%d_%d_%d", year, yday, hour, qtrhour)
 		timestamp.seed = tonumber(year .. yday .. hour .. qtrhour) :: number
 	else
 		if format == "hour" then
 			--- `February 14, 2024, 06:44` --> `"2024_45_6"`
-			datetablecopy.hour = math.floor(datetablecopy.hour + 1)
-			datetablecopy.min = 0
-			datetablecopy.sec = 0
+			nextdatetable.hour = math.floor(nextdatetable.hour + 1)
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
 
 			local year, yday, hour = datetable.year, datetable.yday, datetable.hour
 			timestamp.id = string.format("%d_%d_%d", year, yday, hour)
@@ -1247,78 +1263,122 @@ function types.timestamp(format: "hour" | "halfday" | "day" | "week" | "season" 
 		elseif format == "halfday" then
 			--- `February 14, 2024, 06:44` --> `"2024_45_AM"`
 			--- `February 14, 2024, 16:44` --> `"2024_45_PM"`
-			datetablecopy.hour = 12 * math.ceil((datetablecopy.hour + 1) / 12)
-			datetablecopy.min = 0
-			datetablecopy.sec = 0
+			nextdatetable.hour = 12 * -((nextdatetable.hour + 1) // -12)
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
 
 			local year, yday, phase = datetable.year, datetable.yday, os.date("!%p")
 			timestamp.id = string.format("%d_%d_%s", year, yday, phase)
 			timestamp.seed = tonumber(year .. yday .. string.byte(phase)) :: number
 		elseif format == "day" then
 			--- `February 14, 2024` --> `"2024_45"`
-			datetablecopy.day += 1
-			datetablecopy.hour = 0
-			datetablecopy.min = 0
-			datetablecopy.sec = 0
+			nextdatetable.day += 1
+			nextdatetable.hour = 0
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
 
 			local year, yday = datetable.year, datetable.yday
 			timestamp.id = string.format("%d_%d", year, yday)
 			timestamp.seed = tonumber(year .. yday) :: number
 		elseif format == "week" then
 			--- `February 14, 2024` --> `"2024_7_06"` (06th week of 2024)
-			datetablecopy.day += 8 - datetable.wday
-			datetablecopy.hour = 0
-			datetablecopy.min = 0
-			datetablecopy.sec = 0
+			nextdatetable.day += 8 - datetable.wday
+			nextdatetable.hour = 0
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
 
 			local year, week, yweek = datetable.year, datetable.wday, os.date("!%U")
 			timestamp.id = string.format("%d_%d_%s", year, week, yweek)
 			timestamp.seed = tonumber(year .. week .. yweek) :: number
+		elseif format == "month" then
+			--- `February 14, 2024` --> `"2024_02"` (2nd month of 2024)
+			nextdatetable.month = 1 + (nextdatetable.month % 12)
+
+			if nextdatetable.month < datetable.month then
+				--- modulo into next year
+				nextdatetable.year += 1
+			end
+
+			nextdatetable.day = 0
+			nextdatetable.hour = 0
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
+
+			local year, month = datetable.year, os.date("!%m")
+			timestamp.id = string.format("%d_%s", year, month)
+			timestamp.seed = tonumber(year .. month) :: number
 		elseif format == "season" then
 			--- `February 14, 2024` --> `"2024_1"`
 			--- Mar-May: `1` (spring)
 			--- Jun-Aug: `2` (summer)
 			--- Sep-Nov: `3` (fall)
 			--- Dec-Feb: `4` (winter)
-			datetablecopy.month += 1 + ((11 - math.ceil((datetablecopy.month - 3) % 12)) % 3)
-			datetablecopy.day = 1
-			datetablecopy.hour = 0
-			datetablecopy.min = 0
-			datetablecopy.sec = 0
 
-			local year, month = datetable.year, math.ceil((1 + ((datetable.month - 3) % 12)) / 3)
-			timestamp.id = string.format("%d_%d", year, month)
-			timestamp.seed = tonumber(year .. month) :: number
+			local month = datetable.month
+			local thisseason = monthtoseason(month)
+			local nextseason = thisseason
+
+			--- rotate around 4 seasons
+			if nextseason >= 4 then
+				nextseason %= 4
+			end
+			nextseason += 1
+
+			local nextseasonmonth = monthtoseason(nextseason)
+			
+			nextdatetable.month = nextseasonmonth
+
+			if nextdatetable.month < nextseasonmonth then
+				--- modulo into next year
+				nextdatetable.year += 1
+			end
+
+			nextdatetable.day = 1
+			nextdatetable.hour = 0
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
+
+			local year = datetable.year
+			timestamp.id = string.format("%d_%d", year, thisseason)
+			timestamp.seed = tonumber(year .. thisseason) :: number
 		elseif format == "biannual" then
 			--- `February 14, 2024` --> `"2024_1"`
 			--- Jan-Jun: `1` (SS)
 			--- Jul-Dec: `2` (FW)
-			datetablecopy.month = math.ceil(datetablecopy.month / 6)
-			datetablecopy.day = 1
-			datetablecopy.hour = 0
-			datetablecopy.min = 0
-			datetablecopy.sec = 0
+			nextdatetable.month = -(nextdatetable.month // -6)
+			nextdatetable.day = 1
+			nextdatetable.hour = 0
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
 
-			local year, month = datetable.year, math.ceil(datetable.month / 6)
+			local year, month = datetable.year, -(datetable.month // -6)
 			timestamp.id = string.format("%d_%d", year, month)
 			timestamp.seed = tonumber(year .. month) :: number
 		elseif format == "year" then
 			--- `February 14, 2024` --> `"2024"`
-			datetablecopy.year += 1
-			datetablecopy.month = 1
-			datetablecopy.day = 1
-			datetablecopy.hour = 0
-			datetablecopy.min = 0
-			datetablecopy.sec = 0
+			nextdatetable.year += 1
+			nextdatetable.month = 1
+			nextdatetable.day = 1
+			nextdatetable.hour = 0
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
 
 			timestamp.id = tostring(datetable.year)
 			timestamp.seed = tonumber(datetable.year) :: number
 		end
 	end
 
-	timestamp.change = os.time(datetablecopy) - os.time(datetable)
+	timestamp.change = os.time(nextdatetable) - os.time(datetable)
 
 	return timestamp
+end
+
+--- returns: \
+--- `x > 0`: `"+x"` \
+--- `x == 0`: `"x"` \
+--- `x < 0`: `"-x"`
+function types.deltanumber(x: number)
+	return x > 0 and "+" .. tostring(x) or tostring(x)
 end
 
 --- formats number, thousands separated by `tsep (?=",")`
