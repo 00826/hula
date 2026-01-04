@@ -23,7 +23,7 @@ a table of roblox-luau convenience modules
 |[inputs.luau](./hula/inputs/init.luau)|`UserInputService`, `GamepadService` wrapper|
 |[instanceh.luau](./hula/instanceh/init.luau)|`Instance` library extension|
 |[mathh.luau](./hula/mathh/init.luau)|`math`, `NumberRange`, `NumberSequence` library extension|
-|[net.luau](./hula/net/init.luau)|buffer-based remote interface, oopless signals, server-authoritative unix time (`DateTime.now()`)|
+|[net.luau](./hula/net/init.luau)|`client<->server` & `vm<->vm` communication, server-authoritative `DateTime.now().UnixTimestampMillis`|
 |[patronage.luau](./hula/patronage/init.luau)|player patronage (devproducts, gamepasses, premium, group membership, etc)|
 |[types.luau](./hula/types/init.luau)|primitive type functions|
 |[vector3h.luau](./hula/vector3h/init.luau)|`Vector3` library extension|

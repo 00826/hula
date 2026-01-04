@@ -114,7 +114,9 @@ end
 
 --- ### net.luau
 ---
---- buffer-based remote interface
+--- `client<->server` network interface `port <P>` \
+--- `vm<->vm` network interface `hook <H>` \
+--- server-authoritative `DateTime.now().UnixTimestampMillis`
 local net = {
 	unixbuffer = buffer.create(8);
 	framerate = 1/60;
@@ -126,17 +128,17 @@ local net = {
 	hooks = {};
 }
 
+--- returns `client<->server` network interface `<P>` \
+--- values are queued, compressed into a buffer, then sent via appropriate `unreliable/reliable remoteevent`
 function net.port(key: string)
 	if not net.ports[key] then
-		net.ports[key] = {
-			functions = {}
-		}
+		net.ports[key] = {}
 
 		--- look for ship
 		if not table.find(net.ships, key) then
 			if IsServer then
 				--- make one
-				assert(#net.ships <= 2^8-1, "net at max ships (uint8 limit)")
+				assert(#net.ships <= 2^8-1, "net at max ships (u8 limit)")
 				table.insert(net.ships, key)
 					
 				local ship = table.find(net.ships, key)
@@ -224,7 +226,7 @@ function net.port(key: string)
 end
 
 --- unsigned integer lookup
-local uintlookup = {
+local ulookup = {
 	{ key = "u8", value = {0, 255}; size = 1; write = buffer.writeu8; read = buffer.readu8; };
 	{ key = "u16", value = {0, 65535}; size = 2; write = buffer.writeu16; read = buffer.readu16; };
 	{ key = "u24", value = {0, 16777215}; size = 3; write = writeu24; read = readu24; };
@@ -232,7 +234,7 @@ local uintlookup = {
 }
 
 --- signed integer lookup
-local intlookup = {
+local ilookup = {
 	{ key = "i8", value = {-128, 127}; size = 1; write = buffer.writei8; read = buffer.readi8; };
 	{ key = "i16", value = {-32768, 32767}; size = 2; write = buffer.writei16; read = buffer.readi16; };
 	{ key = "i24", value = {-8388608, 8388607}; size = 3; write = writei24; read = readi24; };
@@ -278,7 +280,7 @@ local typelookup = {
 --- as there is no way to represent an instance into buffer-only terms \
 --- \
 --- `strings` must be no longer than 255 characters, as their length is encoded as an unsigned 8-bit integer \
---- `tables & arrays` must contain no more than 65535 key-value/index-value pairs, as their length is encoded as an unsigned 16-bit integer \
+--- `tables & arrays` must contain no more than 65535 key-value/index-value pairs, as their length is encoded as an unsigned 16-bit integer
 function net.pack(value: any, instances: {Instance}?)
 	local i = table.find(typelookup, typeof(value))
 	assert(i, string.format("unsupported type %s", typeof(value)))
@@ -372,7 +374,7 @@ function net.pack(value: any, instances: {Instance}?)
 			local integer, fraction = math.modf(value)
 			if fraction == 0 then
 				--- integer
-				for _, a in ipairs(integer < 0 and intlookup or uintlookup) do
+				for _, a in ipairs(integer < 0 and ilookup or ulookup) do
 					if integer >= a.value[1] and integer <= a.value[2] then
 						local itype = a.key
 						b = createtypedbuffer(table.find(typelookup, itype)::number, a.size)
@@ -502,8 +504,8 @@ function net.pack(value: any, instances: {Instance}?)
 	return b, instances
 end
 
---- returns:
---- `value`: unpacked value, packed by `decode`, beginning at `offset`, using supplementary instance table `instances`
+--- returns: \
+--- `value`: unpacked value, packed by `decode`, beginning at `offset`, using supplementary instance table `instances` \
 --- `offset`: final offset after unpacking the buffer, should equate to `buffer.len(b)`
 function net.unpack(pack: buffer, offset: number, instances: {Instance}): (any, number)
 	local type = typelookup[buffer.readu8(pack, offset)]
@@ -616,18 +618,18 @@ function net.unpack(pack: buffer, offset: number, instances: {Instance}): (any, 
 
 	else
 		--- true number case
-		for _, uintentry in uintlookup do
-			if uintentry.key == type then
+		for _, uentry in ulookup do
+			if uentry.key == type then
 
 				offset += 1
-				return uintentry.read(pack, offset), offset + uintentry.size
+				return uentry.read(pack, offset), offset + uentry.size
 			end
 		end
-		for _, intentry in intlookup do
-			if intentry.key == type then
+		for _, ientry in ilookup do
+			if ientry.key == type then
 
 				offset += 1
-				return intentry.read(pack, offset), offset + intentry.size
+				return ientry.read(pack, offset), offset + ientry.size
 			end
 		end
 	end
@@ -635,7 +637,7 @@ function net.unpack(pack: buffer, offset: number, instances: {Instance}): (any, 
 	return nil, offset
 end
 
---- returns hooked-function table `<H>` \
+--- returns `vm<->vm` network interface `<H>` \
 --- functions are deferred
 function net.hook(key: string)
 	if not net.hooks[key] then
@@ -719,12 +721,12 @@ function net.hook(key: string)
 	return net.hooks[key]
 end
 
---- returns server-authoritative unix time in seconds
+--- returns server-authoritative `DateTime.now().UnixTimestamp`
 function net.s()
 	return buffer.readf64(net.unixbuffer, 0) / 1000
 end
 
---- returns server-authoritative unix time in milliseconds
+--- returns server-authoritative `DateTime.now().UnixTimestampMillis`
 function net.ms()
 	return buffer.readf64(net.unixbuffer, 0)
 end
