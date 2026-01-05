@@ -129,10 +129,14 @@ local net = {
 }
 
 --- returns `client<->server` network interface `<P>` \
---- values are queued, compressed into a buffer, then sent via appropriate `unreliable/reliable remoteevent`
+--- values are queued, compressed into a buffer, then sent via appropriate `unreliable/reliable remoteevent` \
+--- `port.serverrecvlimitmillis` defaults to `net.framerate * 1000`
 function net.port(key: string)
 	if not net.ports[key] then
-		net.ports[key] = {}
+		net.ports[key] = {
+			serverrecvlimitmillis = net.framerate * 1000;
+			players = {};
+		}
 
 		--- look for ship
 		if not table.find(net.ships, key) then
@@ -186,14 +190,27 @@ function net.port(key: string)
 		port.connect = function(f: ((value: any) -> ()) & (player: Player, value: any) -> ())
 			if IsServer then
 				local function serverrecv(player: Player, s: buffer, i: {Instance})
-					local ship = table.find(net.ships, key)
-					assert(ship, "net unknown ship %s", key)
+					--- resolve recv limit for player
+					local nowmillis = DateTime.now().UnixTimestampMillis
+					if not port.players[player] then
+						port.players[player] = 0
+					end
+					local lastrecv = port.players[player]
 
-					assertrecvtypes(s, i)
+					if nowmillis - lastrecv >= port.serverrecvlimitmillis then
+						port.players[player] = nowmillis
 
-					if ship == readscope(s) then
-						local value = net.unpack(removescope(s), 0, i)
-						f(player, value)
+						local ship = table.find(net.ships, key)
+						assert(ship, "net unknown ship %s", key)
+
+						assertrecvtypes(s, i)
+
+						if ship == readscope(s) then
+							local value = net.unpack(removescope(s), 0, i)
+							f(player, value)
+						end
+					else
+						--- hit limit
 					end
 				end
 
@@ -818,6 +835,14 @@ if IsServer then
 				recent = now - (dt - net.framerate)
 
 				unixtimestamp()
+			end
+		end)
+	end
+
+	do --- cleanup port serverrecvlimits
+		Players.PlayerRemoving:Connect(function(player: Player)
+			for _, p: typeof(net.port("")) in net.ports do
+				p.players[player] = nil
 			end
 		end)
 	end
