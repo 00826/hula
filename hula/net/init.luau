@@ -171,7 +171,7 @@ function net.port(key: string)
 			front: boolean?
 		)
 			local ship = table.find(net.ships, key)
-			assert(ship, "net unknown ship %s", key)
+			assert(ship, string.format("net unknown ship '%s'", key))
 
 			local unscoped, instances = net.pack(value)
 			local scoped = writescope(unscoped, ship or 0)
@@ -190,7 +190,17 @@ function net.port(key: string)
 		port.connect = function(f: ((value: any) -> ()) & (player: Player, value: any) -> ())
 			if IsServer then
 				local function serverrecv(player: Player, s: buffer, i: {Instance})
-					--- resolve recv limit for player
+					--- resolve ship
+					local ship = table.find(net.ships, key)
+					assert(ship, string.format("net unknown ship '%s'", key))
+
+					--- earliest exit if not associated ship
+					if ship ~= readscope(s) then return end
+
+					--- assert types and ship
+					assertrecvtypes(s, i)
+
+					--- resolve recv limit wrt player
 					local nowmillis = DateTime.now().UnixTimestampMillis
 					if not port.players[player] then
 						port.players[player] = 0
@@ -200,17 +210,10 @@ function net.port(key: string)
 					if nowmillis - lastrecv >= port.serverrecvlimitmillis then
 						port.players[player] = nowmillis
 
-						local ship = table.find(net.ships, key)
-						assert(ship, "net unknown ship %s", key)
-
-						assertrecvtypes(s, i)
-
-						if ship == readscope(s) then
-							local value = net.unpack(removescope(s), 0, i)
-							f(player, value)
-						end
+						local value = net.unpack(removescope(s), 0, i)
+						f(player, value)
 					else
-						--- hit limit
+						warn(string.format("net server recv '%s' packet dropped (%dms)", key, nowmillis - lastrecv), player.UserId)
 					end
 				end
 
@@ -221,7 +224,7 @@ function net.port(key: string)
 			else
 				local function clientrecv(s: buffer, i: {Instance})
 					local ship = table.find(net.ships, key)
-					assert(ship, "net unknown ship %s", key)
+					assert(ship, string.format("net unknown ship '%s'", key))
 
 					assertrecvtypes(s, i)
 

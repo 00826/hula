@@ -1134,6 +1134,33 @@ function instanceh.transparencycontrollerstep(tc: typeof(instanceh.createtranspa
 	return false
 end
 
+--- returns player from \
+--- `Player player` \
+--- `Instance player character` \
+--- `number player userid` \
+--- `string player name`
+function instanceh.resolveplayer(player: Player|number|string|Instance): Player?
+	if type(player) == "number" then
+		player = Players:GetPlayerByUserId(player)
+	elseif type(player) == "string" then
+		player = Players:QueryDescendants(">#" .. player)[1]
+	elseif typeof(player) == "Instance" then
+		if player:IsA("Player") then
+			--- fine
+		elseif player:IsA("Instance") then
+			player = Players:GetPlayerFromCharacter(player)
+		end
+	end
+
+	if player ~= nil then
+		assert(typeof(player) == "Instance" and player:IsA("Player"), "error resolving player")
+
+		return player
+	end
+
+	return nil
+end
+
 --- encodes data type into an appearance description table (datastore-friendly)
 function instanceh.createappearancedescription(t: {[string]: any} | HumanoidDescription | Player | number | string)
 	local appearancemap = instanceh.appearancemap
@@ -1525,7 +1552,11 @@ function instanceh.preloadfilter(assets: { string | Instance }): { string | Inst
 			elseif thing:IsA("Sound") then
 				table.insert(list, thing)
 			elseif thing:IsA("SpecialMesh") then
-				table.insert(list, thing)
+				--- table.insert(list, thing)
+				local meshid = thing.MeshId
+				local textureid = thing.TextureId
+				if meshid ~= "" and not table.find(list, meshid) then table.insert(list, meshid) end
+				if textureid ~= "" and not table.find(list, textureid) then table.insert(list, textureid) end
 			end
 		end
 	end

@@ -1,6 +1,7 @@
 --!strict
 
 local GuiService = game:GetService("GuiService")
+local StarterGui = game:GetService("StarterGui")
 local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
@@ -98,6 +99,100 @@ local gui = {
 		end;
 	};
 }
+
+type getcore = 
+	((parameter: "PointsNotificationsActive") -> boolean)
+&	((parameter: "BadgesNotificationsActive") -> boolean)
+&	((parameter: "AvatarContextMenuEnabled") -> boolean)
+&	((parameter: "ChatActive") -> boolean)
+&	((parameter: "ChatWindowSize") -> UDim2)
+&	((parameter: "ChatWindowPosition") -> UDim2)
+&	((parameter: "ChatBarDisabled") -> boolean)
+&	((parameter: "GetBlockedUserIds") -> {number})
+&	((parameter: "PlayerBlockedEvent") -> BindableEvent)
+&	((parameter: "PlayerUnblockedEvent") -> BindableEvent)
+&	((parameter: "PlayerMutedEvent") -> BindableEvent)
+&	((parameter: "PlayerUnmutedEvent") -> BindableEvent)
+&	((parameter: "PlayerFriendedEvent") -> BindableEvent)
+&	((parameter: "PlayerUnfriendedEvent") -> BindableEvent)
+&	((parameter: "DevConsoleVisible") -> boolean)
+&	((parameter: "VRRotationIntensity") -> "Low" | "High" | "Smooth")
+
+local getcore: getcore = function(parameter)
+	return StarterGui:GetCore(parameter)
+end
+
+--- returns `StarterGui:GetCore(parameter)`
+gui.getcore = getcore
+
+type setcore =
+	((parameter: "ChatActive", variant: boolean) -> ())
+&	((parameter: "PointsNotificationsActive", variant: boolean) -> ())
+&	((parameter: "BadgesNotificationsActive", variant: boolean) -> ())
+&	((parameter: "ResetButtonCallback", variant: boolean|BindableEvent) -> ())
+&	((parameter: "ChatMakeSystemMessage", variant: {
+		Text: string;
+		Color: Color3?;
+		Font: Enum.Font?;
+		TextSize: number?;
+	}) -> ())
+&	((parameter: "SendNotification", variant: {
+		Title: string;
+		Text: string;
+		Icon: string?;
+		Duration: number?;
+		Callback: BindableFunction?;
+		Button1: string?;
+		Button2: string?;
+	}) -> ())
+&	((parameter: "TopbarEnabled", variant: boolean) -> ())
+&	((parameter: "DevConsoleVisible", variant: boolean) -> ())
+&	((parameter: "PromptSendFriendRequest", variant: Player) -> ())
+&	((parameter: "PromptUnfriend", variant: Player) -> ())
+&	((parameter: "PromptBlockPlayer", variant: Player) -> ())
+&	((parameter: "PromptUnblockPlayer", variant: Player) -> ())
+&	((parameter: "AvatarContextMenuEnabled", variant: boolean) -> ())
+&	((parameter: "AvatarContextMenuTarget", variant: Player) -> ())
+&	((parameter: "AddAvatarContextMenuOption", variant: Enum.AvatarContextMenuOption | { string | BindableEvent }) -> ()) --- { [1]: string, [2]: BindableEvent }
+&	((parameter: "RemoveAvatarContextMenuOption", variant: Enum.AvatarContextMenuOption | { string | BindableEvent }) -> ()) --- should be the same as what was used in `"AddAvatarContextMenuOption"`
+&	((parameter: "AvatarContextMenuTheme", variant: {
+		BackgroundImage: string;
+		BackgroundTransparency: number;
+		BackgroundColor: Color3;
+		NameTagColor: Color3;
+		NameUnderlineColor: Color3;
+		ButtonFrameColor: Color3;
+		ButtonFrameTransparency: number;
+		ButtonUnderlineColor: Color3;
+		Font: Enum.Font;
+	}) -> ())
+
+local setcore: setcore = function(parameter, value)
+	return StarterGui:SetCore(parameter)
+end
+
+--- returns `StarterGui:SetCore(parameter, value)`
+gui.setcore = setcore
+
+type rbxthumb =
+	((type: "Asset", id: number, size: "150x150"|"420x420") -> string)
+&	((type: "Avatar", id: number, size: "48x48"|"60x60"|"100x100"|"150x150"|"180x180"|"352x352"|"420x420"|"720x720") -> string)
+&	((type: "AvatarBust", id: number, size: "50x50"|"60x60"|"75x75"|"100x100"|"150x150"|"180x180"|"352x352"|"420x420") -> string)
+&	((type: "AvatarHeadShot", id: number, size: "48x48"|"60x60"|"100x100"|"150x150"|"180x180"|"352x352"|"420x420") -> string)
+&	((type: "BadgeIcon", id: number, size: "150x150") -> string)
+&	((type: "BundleThumbnail", id: number, size: "150x150"|"420x420") -> string)
+&	((type: "FontFamily", id: number, size: "1200x80") -> string)
+&	((type: "GameIcon", id: number, size: "50x50"|"150x150") -> string)
+&	((type: "GamePass", id: number, size: "150x150") -> string)
+&	((type: "GameThumbnail", id: number, size: "256x144"|"384x216"|"480x270"|"576x324"|"768x432") -> string)
+&	((type: "GroupIcon", id: number, size: "150x150"|"420x420") -> string)
+&	((type: "Outfit", id: number, size: "150x150"|"420x420") -> string)
+
+local rbxthumb: rbxthumb = function(type, id, size)
+	return string.format("rbxthumb://type=%s&id=%d&w=%s&h=%s", type, id, unpack(string.split(size, "x")))
+end
+
+gui.rbxthumb = rbxthumb
 
 --- returns `GuiService.PreferredTextSize`
 function gui.preferredtextsize()

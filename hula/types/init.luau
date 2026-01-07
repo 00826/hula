@@ -1373,6 +1373,24 @@ function types.timestamp(format: "hour" | "halfday" | "day" | "week" | "month" |
 	return timestamp
 end
 
+--- returns `string.format("%d%s", x, s)` with ordinal suffix `s` (`st, nd, rd, th`)
+function types.ordinalnumber(x: number)
+	local a = x % 10
+	local b = x % 100
+
+	local suffix = "th"
+
+	if a == 1 and b ~= 11 then
+		suffix = "st"
+	elseif a == 2 and b ~= 12 then
+		suffix = "nd"
+	elseif a == 3 and b ~= 13 then
+		suffix = "rd"
+	end
+	
+	return string.format("%d%s", x, suffix)
+end
+
 --- returns: \
 --- `x > 0`: `"+x"` \
 --- `x == 0`: `"x"` \
