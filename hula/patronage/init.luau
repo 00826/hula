@@ -28,7 +28,6 @@ function patronage.createproduct(type: Enum.InfoType|Enum.MembershipType)
 
 		type = type;
 		price = 0;
-		currency = Enum.CurrencyType.Default;
 
 		--- & {[string]: any}
 		[(nil::any)::string] = nil::any;
@@ -207,6 +206,7 @@ function patronage.productpurchases(t: {
 		CurrencySpent: number;
 		--- always `Enum.CurrencyType.Robux`
 		CurrencyType: Enum.CurrencyType;
+		ProductPurchaseChannel: Enum.ProductPurchaseChannel;
 	}) -> (Enum.ProductPurchaseDecision);
 	--- `Players.UserSubscriptionStatusChanged`
 	subscription: (player: Player, id: string) -> ();
