@@ -150,7 +150,7 @@ function net.port(key: string)
 				script:SetAttribute(key, ship)
 			else
 				--- to bad!
-				warn(string.format("net unknown ship %s", key))
+				--- warn(string.format("net unknown ship %s", key))
 			end
 		end
 
@@ -192,7 +192,7 @@ function net.port(key: string)
 				local function serverrecv(player: Player, s: buffer, i: {Instance})
 					--- resolve ship
 					local ship = table.find(net.ships, key)
-					assert(ship, string.format("net unknown ship '%s'", key))
+					if not ship then return end --- assert(ship, string.format("net unknown ship '%s'", key))
 
 					--- earliest exit if not associated ship
 					if ship ~= readscope(s) then return end
@@ -213,7 +213,7 @@ function net.port(key: string)
 						local value = net.unpack(removescope(s), 0, i)
 						f(player, value)
 					else
-						warn(string.format("net server recv '%s' packet dropped (%dms)", key, nowmillis - lastrecv), player.UserId)
+						--- warn(string.format("net server recv '%s' packet dropped (%dms)", key, nowmillis - lastrecv), player.UserId)
 					end
 				end
 
@@ -224,7 +224,7 @@ function net.port(key: string)
 			else
 				local function clientrecv(s: buffer, i: {Instance})
 					local ship = table.find(net.ships, key)
-					assert(ship, string.format("net unknown ship '%s'", key))
+					if not ship then return end  --- assert(ship, string.format("net unknown ship '%s'", key))
 
 					assertrecvtypes(s, i)
 

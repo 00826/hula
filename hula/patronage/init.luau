@@ -221,7 +221,7 @@ function patronage.productpurchases(t: {
 		asset = MarketplaceService.PromptPurchaseFinished:Connect(t.asset);
 		bundle = MarketplaceService.PromptBundlePurchaseFinished:Connect(t.bundle);
 		gamepass = MarketplaceService.PromptGamePassPurchaseFinished:Connect(t.gamepass);
-		receipt = MarketplaceService.ProcessReceipt;
+		receipt = t.product;
 		subscription = Players.UserSubscriptionStatusChanged:Connect(t.subscription);
 		premium = Players.PlayerMembershipChanged:Connect(t.premium);
 	}

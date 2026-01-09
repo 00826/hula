@@ -171,9 +171,9 @@ function inputs.menuclosed()
 	return GuiService.MenuClosed
 end
 
---- returns position, direction, and raycastresult of `camera:ScreenPointToRay`
-function inputs.screenpointraycast(camera: Camera, screenposition: Vector2, raycastparams: RaycastParams, length: number)
-	local unitray = camera:ScreenPointToRay(screenposition.X, screenposition.Y)
+--- returns `origin`, `direction`, and `raycastresult` of `camera:ScreenPointToRay(point.X, point.Y)`
+function inputs.screenpointraycast(camera: Camera, point: Vector2, raycastparams: RaycastParams, length: number)
+	local unitray = camera:ScreenPointToRay(point.X, point.Y)
 	local origin, direction = unitray.Origin, unitray.Direction
 
 	return origin, direction, workspace:Raycast(origin, direction * length, raycastparams)

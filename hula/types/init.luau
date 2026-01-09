@@ -36,18 +36,17 @@ end
 --- reads unit vector from buffer
 function types.readunitvector(b: buffer, offset: number)
 	return Vector3.new(
-		buffer.readi8(b, offset),
-		buffer.readi8(b, offset + 1),
-		buffer.readi8(b, offset + 2)
-	) * 1/127
+		math.map(buffer.readu8(b, offset), 0, 255, -1, 1),
+		math.map(buffer.readu8(b, offset + 1), 0, 255, -1, 1),
+		math.map(buffer.readu8(b, offset + 2), 0, 255, -1, 1)
+	)
 end
 
---- writes unit vector to buffer \
---- `x,y,z`: mapped to `[-127, 127]`
+--- writes unit vector to buffer
 function types.writeunitvector(b: buffer, offset: number, value: Vector3)
-	buffer.writei8(b, offset, math.clamp(value.X * 127, -127, 127))
-	buffer.writei8(b, offset + 1, math.clamp(value.Y * 127, -127, 127))
-	buffer.writei8(b, offset + 2, math.clamp(value.Z * 127, -127, 127))
+	buffer.writeu8(b, offset, math.map(value.X, -1, 1, 0, 255))
+	buffer.writeu8(b, offset + 1, math.map(value.Y, -1, 1, 0, 255))
+	buffer.writeu8(b, offset + 2, math.map(value.Z, -1, 1, 0, 255))
 end
 
 --- reads Vector3i24 from buffer
@@ -1095,6 +1094,16 @@ end
 function types.incr<T>(t: {[T]: number}, a: T, b: number)
 	--- ta
 	t[a] = (t[a] or 0) + b
+end
+
+--- returns array of all keys in `t`
+function types.keys<T>(t: {[T]: any})
+	local result = {}
+	for k in t do
+		table.insert(result, k)
+	end
+
+	return result
 end
 
 --- recursive, roblox-type-friendly table.clear(); handles destruction of: \
