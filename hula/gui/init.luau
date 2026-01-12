@@ -408,52 +408,65 @@ function gui.grid(columns: number, rows: number, padding: number, uigridlayout: 
 end
 
 --- creates a textqueue, used for displaying text messages
-function gui.createtextqueue(textobject: TextLabel, separator: string, alloc: number?)
+function gui.createtextqueue(separator: string, messagelifetime: number, alloc: number)
 	return {
-		queue = table.create(alloc or 16) :: { {string|number} };
+		queue = table.create(alloc);
+		
 		separator = separator;
-		textobject = textobject;
+		messagelifetime = messagelifetime;
 	}
 end
 
---- inserts text into textqueue
-function gui.textqueueinsert(tq: typeof(gui.createtextqueue(...)), text: string, expiry: number, front: boolean?)
+--- inserts text into textqueue \
+--- `front(?=false)` text is inserted at the top of the queue
+function gui.textqueueinsert(tq: typeof(gui.createtextqueue(...)), text: string, timestamp: number, time: number?, front: boolean?)
 	if front == true then
-		table.insert(tq.queue, 1, {text, expiry::any})
+		table.insert(tq.queue, 1, {
+			text = text;
+			timestamp = timestamp;
+			time = time or tq.messagelifetime;
+		})
 	else
-		table.insert(tq.queue, {text, expiry::any})
+		table.insert(tq.queue, {
+			text = text;
+			timestamp = timestamp;
+			time = time or tq.messagelifetime;
+		})
 	end
 end
 
 --- advances textqueue, removing any expired text
 function gui.textqueuestep(tq: typeof(gui.createtextqueue(...)), now: number)
 	local queue = tq.queue
+
+	--- remove expired
 	for i = #queue, 1, -1 do
-		local expiry = queue[i][2]::number
-		if expiry < now then
+		local entry = queue[i]
+
+		if entry.timestamp + entry.time < now then
 			table.remove(queue, i)
 		end
 	end
 
 	local len = #queue
-	local textobject = tq.textobject
-	if len < 1 then
-		textobject.Text = ""
-	elseif len == 1 then
-		textobject.Text = queue[1][1]::string
-	else
-		local concat = ""
-		local sep = tq.separator
+	if len > 0 then
+		local separator = tq.separator
+		local blob = ""
+
 		for i, entry in ipairs(queue) do
-			local text = entry[1]::string
-			if i < len then
-				concat ..= text .. sep
+			local text = entry.text
+			local atlen = i == len
+
+			if atlen then
+				blob ..= text
 			else
-				concat ..= text
+				blob ..= text .. separator
 			end
 		end
 
-		textobject.Text = concat
+		return blob
+	else
+		return ""
 	end
 end
 

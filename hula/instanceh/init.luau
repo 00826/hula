@@ -1486,6 +1486,71 @@ function instanceh.zonereparent(z: typeof(instanceh.createzone(...)), container:
 	end)
 end
 
+--- creates a mixtape
+function instanceh.createmixtape(tracklist: {Sound})
+	--- original volumes
+	local volumes = table.create(#tracklist)
+	for i, track in ipairs(tracklist) do
+		table.insert(volumes, track.Volume)
+		track.Volume = 0
+	end
+	
+	return {
+		track = 1;
+		tracklist = tracklist;
+		tracklooped = false;
+
+		playbackspeed = 1;
+
+		crossfadespeed = 2;
+		fadeoutstart = 1;
+		volumes = volumes;
+	}
+end
+
+--- advances mixtape by `dt`
+function instanceh.mixtapestep(m: typeof(instanceh.createmixtape(...)), dt: number)
+	m.track = math.clamp(m.track, 1, #m.tracklist)
+
+	for i, track in ipairs(m.tracklist) do
+		track.PlaybackSpeed = m.playbackspeed
+		local originalvolume = m.volumes[i]
+		if i == m.track then
+			--- play, fade in
+			if track.TimePosition == 0 then
+				if not track.IsPlaying then
+					track:Play()
+				end
+			elseif track.TimePosition + m.fadeoutstart >= track.TimeLength then
+				if m.tracklooped then
+					--- nothing, wait for full finish
+				else
+					if not m.tracklist[m.track] then
+						m.track = 1
+					end
+				end
+			elseif track.TimePosition >= track.TimeLength then
+				if m.tracklooped then
+					m.track += 1
+				else
+					--- nothing
+				end
+			end
+			
+			if track.Volume ~= originalvolume then
+				track.Volume = math.clamp(track.Volume + (dt * m.crossfadespeed), 0, originalvolume)
+			end
+		else
+			--- fade out, eventually stop
+			if track.Volume == 0 then
+				track:Stop()
+			else
+				track.Volume = math.clamp(track.Volume - (dt * m.crossfadespeed), 0, originalvolume)
+			end
+		end
+	end
+end
+
 --- `return pcall(contentprovider.PreloadAsync, contentprovider, assets, f)`
 function instanceh.preloadasync(assets: {any}, f: ((contentstring: string, assetfetchstatus: Enum.AssetFetchStatus) -> ())?)
 	local contentprovider = game:GetService("ContentProvider")

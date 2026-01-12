@@ -163,6 +163,23 @@ function vector3h.nextpointonradius(radius: number, R: Random?)
 	return Vector3.new(radius * math.cos(theta), 0, radius * math.sin(theta))
 end
 
+--- returns unit circle with `v` vertices
+function vector3h.unitcircle(v: number)
+	local circle = table.create(v)
+
+	local step = (2 * math.pi) / v
+	for i = 0, v - 1, 1 do
+		local theta = i * step
+		table.insert(circle, Vector3.new(
+			math.cos(theta),
+			0,
+			math.sin(theta)
+		))
+	end
+
+	return circle
+end
+
 --- returns true if `v` and `w` are coplanar along unit vector `u`
 function vector3h.iscoplanar(v: Vector3, w: Vector3, u: Vector3)
 	return math.round(vector.dot((v - w)::any, u::any)) == 0

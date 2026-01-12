@@ -17,6 +17,41 @@ local types = {
 	abbreviations = {"", "K", "M", "B", "T", "Qd", "Qt", "Sx", "Sp", "Oc", "No", "De"};
 }
 
+--- creates a wheel \
+--- vectors should be along the x/z plane
+function types.createwheel(len: number, initialangle: number?)
+	local c = {
+		pointer = vector.create(0, 0, 0);
+		vectors = table.create(len);
+	}
+
+	local step = (2 * math.pi) / len
+
+	for i = 0, len - 1, 1 do
+		local theta = (i * step) + (initialangle or 0)
+		
+		table.insert(c.vectors, vector.create(math.cos(theta), 0, math.sin(theta)))
+	end
+
+	return c
+end
+
+--- returns index of wheel wrt pointer
+function types.wheelresolve(c: typeof(types.createwheel(...)))
+	local step = (2 * math.pi) / #c.vectors
+	local halfstep = 0.5 * step
+
+	for i, vec in ipairs(c.vectors) do
+		local angle = vector.angle(vec, c.pointer)
+
+		if angle > -halfstep and angle < halfstep then
+			return i
+		end
+	end
+
+	return 0
+end
+
 --- reads Vector3 from buffer
 function types.readvector3(b: buffer, offset: number)
 	return Vector3.new(
