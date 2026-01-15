@@ -9,6 +9,7 @@ local LocalizationService = game:GetService("LocalizationService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Players = game:GetService("Players")
 local PolicyService = game:GetService("PolicyService")
+local SocialService = game:GetService("SocialService")
 
 --- ### patronage.luau
 ---
@@ -225,6 +226,11 @@ function patronage.productpurchases(t: {
 		subscription = Players.UserSubscriptionStatusChanged:Connect(t.subscription);
 		premium = Players.PlayerMembershipChanged:Connect(t.premium);
 	}
+end
+
+--- returns `pcall(SocialService.PromptGameInvite, SocialService, player, experienceinviteoptions)`
+function patronage.promptgameinvite(player: Player, experienceinviteoptions: ExperienceInviteOptions?)
+	return pcall(SocialService.PromptGameInvite, SocialService, player, experienceinviteoptions)
 end
 
 --- returns `pcall(AvatarEditorService.PromptSetFavorite, AvatarEditorService, assetid, avataritemtype, shouldfavorite)`

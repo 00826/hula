@@ -1183,7 +1183,7 @@ function types.createstring(len: number)
 end
 
 --- formats time into a hour-minute-second-esque notation
-function types.hourminutesecond(time: number, notation: "DD:HH:MM:SS" | "HH:MM:SS" | "MM:SS" | "M:SS", appendms: boolean?): string
+function types.hourminutesecond(time: number, notation: "DD:HH:MM:SS" | "DDdHHhMMmSSs" | "HH:MM:SS" | "MM:SS" | "M:SS", appendms: boolean?): string
 	--[[
 		os.date("!%X", time) is the fastest for all inputs below 86400, because any input at or above 86400 breaks the formatting
 		string.gsub(string.format(), time, subf) is the second fastest for all inputs, never has a formatting break, but is ~10% slower than os.date("!%X", time)
@@ -1203,6 +1203,15 @@ function types.hourminutesecond(time: number, notation: "DD:HH:MM:SS" | "HH:MM:S
 		else
 			hms = "00:" .. os.date("!%X", time)
 		end
+	elseif notation == "DDdHHhMMmSSs" then
+		local days = time // 86400
+		time -= days * 86400
+		local hours = time // 3600
+		time -= hours * 3600
+		local minutes = time // 60
+		time -= minutes * 60
+
+		hms = string.gsub(string.format("%dd%dh%dm%ds", days, hours, minutes, time), "%d+", subf)
 	elseif notation == "HH:MM:SS" then
 		if time >= 86400 then
 			local hours = time // 3600

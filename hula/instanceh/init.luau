@@ -689,7 +689,7 @@ type lightbase = {
 	enabled: boolean?;
 	shadows: boolean?;
 	
-	parent: PVInstance?;
+	parent: Instance?;
 }
 
 --- type describing light transform (tween) args
@@ -735,7 +735,7 @@ function instanceh.pointlight(
 	if b then
 		local goal = {
 			Brightness = b.brightness;
-			Color3 = b.color;
+			Color = b.color;
 			Enabled = b.enabled;
 			Shadows = b.shadows;
 
