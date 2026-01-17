@@ -18,6 +18,7 @@ a table of roblox-luau convenience modules
 |-|-|
 |[hula](./hula/init.luau)|table|
 |-|-|
+|[bufferh.luau](./hula/color3h/init.luau)|`buffer` library extension|
 |[color3h.luau](./hula/color3h/init.luau)|`Color3`, `ColorSequence` library extension|
 |[gui.luau](./hula/gui/init.luau)|`UDim`, `UDim2`, `Vector2` library extensions, ui helper functions|
 |[inputs.luau](./hula/inputs/init.luau)|`UserInputService`, `GamepadService` wrapper|
@@ -25,7 +26,7 @@ a table of roblox-luau convenience modules
 |[mathh.luau](./hula/mathh/init.luau)|`math`, `NumberRange`, `NumberSequence` library extension|
 |[net.luau](./hula/net/init.luau)|`client<->server` & `vm₁<->vm₁` networking, server-authoritative `DateTime.now().UnixTimestampMillis`|
 |[patronage.luau](./hula/patronage/init.luau)|player patronage (devproducts, gamepasses, premium, group membership, etc)|
-|[types.luau](./hula/types/init.luau)|primitive type functions|
+|[types.luau](./hula/types/init.luau)|general type functions|
 |[vector3h.luau](./hula/vector3h/init.luau)|`Vector3` library extension|
 
 ## design language

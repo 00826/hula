@@ -6,13 +6,45 @@ local RunService = game:GetService("RunService")
 
 local Rand = Random.new()
 
-local function subf(x: string)
-	return string.len(x) == 1 and "0" .. x or x
+--- returns `a == b`
+local function compare(a: buffer, b: buffer, offset: number?)
+	local alen = buffer.len(a)
+	local blen = buffer.len(b)
+
+	offset = offset or 0
+	assert(offset) --- solver kick rocks
+
+	if alen ~= blen then
+		return false
+	elseif offset >= alen then
+		return true
+	else
+		local traverse = alen - offset
+		if traverse >= 4 then
+			if buffer.readu32(a, offset) == buffer.readu32(b, offset) then
+				return compare(a, b, offset + 4)
+			else
+				return false
+			end
+		elseif traverse >= 2 then
+			if buffer.readu16(a, offset) == buffer.readu16(b, offset) then
+				return compare(a, b, offset + 2)
+			else
+				return false
+			end
+		else
+			if buffer.readu8(a, offset) == buffer.readu8(b, offset) then
+				return compare(a, b, offset + 1)
+			else
+				return false
+			end
+		end
+	end
 end
 
 --- ### types.luau
 ---
---- primitive type functions
+--- general type functions
 local types = {
 	abbreviations = {"", "K", "M", "B", "T", "Qd", "Qt", "Sx", "Sp", "Oc", "No", "De"};
 }
@@ -50,545 +82,6 @@ function types.wheelresolve(c: typeof(types.createwheel(...)))
 	end
 
 	return 0
-end
-
---- reads Vector3 from buffer
-function types.readvector3(b: buffer, offset: number)
-	return Vector3.new(
-		buffer.readf32(b, offset),
-		buffer.readf32(b, offset + 4),
-		buffer.readf32(b, offset + 8)
-	)
-end
-
---- writes Vector3 to buffer
-function types.writevector3(b: buffer, offset: number, value: Vector3)
-	buffer.writef32(b, offset, value.X)
-	buffer.writef32(b, offset + 4, value.Y)
-	buffer.writef32(b, offset + 8, value.Z)
-end
-
---- reads unit vector from buffer
-function types.readunitvector(b: buffer, offset: number)
-	return Vector3.new(
-		math.map(buffer.readu8(b, offset), 0, 255, -1, 1),
-		math.map(buffer.readu8(b, offset + 1), 0, 255, -1, 1),
-		math.map(buffer.readu8(b, offset + 2), 0, 255, -1, 1)
-	)
-end
-
---- writes unit vector to buffer
-function types.writeunitvector(b: buffer, offset: number, value: Vector3)
-	buffer.writeu8(b, offset, math.map(value.X, -1, 1, 0, 255))
-	buffer.writeu8(b, offset + 1, math.map(value.Y, -1, 1, 0, 255))
-	buffer.writeu8(b, offset + 2, math.map(value.Z, -1, 1, 0, 255))
-end
-
---- reads Vector3i24 from buffer
-function types.readvector3i24(b: buffer, offset: number, precision: number?)
-	return Vector3.new(
-		types.readi24(b, offset),
-		types.readi24(b, offset + 3),
-		types.readi24(b, offset + 6)
-	) * (precision and 1/precision or 1)
-end
-
---- writes Vector3i24 to buffer
-function types.writevector3i24(b: buffer, offset: number, value: Vector3, precision: number?)
-	if precision then
-		value *= precision
-	end
-	types.writei24(b, offset, value.X)
-	types.writei24(b, offset + 3, value.Y)
-	types.writei24(b, offset + 6, value.Z)
-end
-
---- rotates range of values with fixed variable size to the right
---- ```
---- rrotate(bufferu8[23, 33, 91], 0, 1, 3) -> [91, 23, 33]
---- ```
-function types.rrotate(b: buffer, offset: number, size: number, range: number)
-	local x = buffer.readstring(b, offset + (size * (range - 1)), size) --- pull last value [91]
-	buffer.copy(b, offset + size, b, offset, (size * range) - size) --- push range leading up to last value up by 1 place [23, 23, 33]
-	buffer.writestring(b, offset, x) --- write to first value
-end
-
---- rotates range of values with fixed variable size to the left
---- ```
---- lrotate(bufferu8[23, 33, 91], 0, 1, 3) -> [33, 91, 23]
---- ```
-function types.lrotate(b: buffer, offset: number, size: number, range: number)
-	local last = (size * range) - size
-
-	local x = buffer.readstring(b, offset, size) --- pull first value [23]
-	buffer.copy(b, offset, b, offset + size, last) --- push range after the first value down by 1 place [33, 91, 91]
-	buffer.writestring(b, offset + last, x) --- write to last value
-end
-
---- swaps range of bytes stored at offsets `x` and `y` \
---- `range (?=1)` range of bytes to swap
-function types.swap(b: buffer, x: number, y: number, range: number?)
-	range = range or 1
-	local temp = buffer.create(range::number)
-	buffer.copy(temp, x, b, 0, range)
-	buffer.copy(b, x, b, y, range)
-	buffer.copy(b, y, temp, 0, range)
-end
-
---- returns `a == b` \
---- `offset (?=0)` begin comparison at offset
-function types.compare(a: buffer, b: buffer, offset: number?)
-	local alen = buffer.len(a)
-	local blen = buffer.len(b)
-
-	offset = offset or 0
-	assert(offset) --- solver kick rocks
-
-	if alen ~= blen then
-		return false
-	elseif offset >= alen then
-		return true
-	else
-		local traverse = alen - offset
-		if traverse >= 4 then
-			--- print(`comparing u32 {buffer.readu32(a, offset)} against {buffer.readu32(b, offset)} at {offset}, {offset+4}/{lenA}`)
-			if buffer.readu32(a, offset) == buffer.readu32(b, offset) then
-				return types.compare(a, b, offset + 4)
-			else
-				return false
-			end
-		elseif traverse >= 2 then
-			--- print(`comparing u16 {buffer.readu16(a, offset)} against {buffer.readu16(b, offset)} at {offset}, {offset+2}/{lenA}`)
-			if buffer.readu16(a, offset) == buffer.readu16(b, offset) then
-				return types.compare(a, b, offset + 2)
-			else
-				return false
-			end
-		else
-			--- print(`comparing u8 {buffer.readu8(a, offset)} against {buffer.readu8(b, offset)} at {offset}, {offset+1}/{lenA}`)
-			if buffer.readu8(a, offset) == buffer.readu8(b, offset) then
-				return types.compare(a, b, offset + 1)
-			else
-				return false
-			end
-		end
-	end
-end
-
---- returns byte-wide changes made from old buffer `a` and new buffer `b` \
---- `number result[1]` delta offset \
---- `buffer result[2]` delta byte value
-function types.delta(a: buffer, b: buffer, offset: number?)
-	local alen = buffer.len(a)
-	local blen = buffer.len(b)
-
-	assert(alen == blen, "expected buffers to be of same-length when resolving delta")
-
-	offset = offset or 0
-	assert(offset) --- solver kick rocks
-
-	local result = {}
-
-	if offset >= alen then
-		return result
-	else
-		local traverse = alen - offset
-		if traverse >= 4 then
-			if buffer.readu32(a, offset) ~= buffer.readu32(b, offset) then
-				local value = buffer.create(4)
-				buffer.copy(value, 0, b, offset, 4)
-				table.insert(result, {offset, value::any})
-			end
-
-			local r = types.delta(a, b, offset + 4)
-			table.move(r, 1, #r, #result + 1, result)
-		elseif traverse >= 2 then
-			if buffer.readu16(a, offset) ~= buffer.readu16(b, offset) then
-				local value = buffer.create(2)
-				buffer.copy(value, 0, b, offset, 2)
-				table.insert(result, {offset, value::any})
-			end
-
-			local r = types.delta(a, b, offset + 2)
-			table.move(r, 1, #r, #result + 1, result)
-		else
-			if buffer.readu8(a, offset) ~= buffer.readu8(b, offset) then
-				local value = buffer.create(1)
-				buffer.copy(value, 0, b, offset, 1)
-				table.insert(result, {offset, value::any})
-			end
-
-			local r = types.delta(a, b, offset + 1)
-			table.move(r, 1, #r, #result + 1, result)
-		end
-	end
-
-	return result
-end
-
---- returns a duplicate of buffer
-function types.duplicate(b: buffer)
-	local dupe = buffer.create(buffer.len(b))
-	buffer.copy(dupe, 0, b)
-
-	return dupe
-end
-
---- writes signed 24-bit integer to buffer
-function types.writei24(b: buffer, offset: number, value: number)
-	local bitoffset = offset * 8
-	local sign = math.sign(value) < 0 and 1 or 0
-	if sign == 1 then
-		value += 1
-	end
-
-	buffer.writebits(b, bitoffset, 23, math.abs(value))
-	buffer.writebits(b, bitoffset + 23, 1, sign)
-end
-
---- reads signed 24-bit integer from buffer
-function types.readi24(b: buffer, offset: number)
-	local bitoffset = offset * 8
-	local value = buffer.readbits(b, bitoffset, 23)
-	local sign = buffer.readbits(b, bitoffset + 23, 1)
-	
-	if sign == 1 then
-		value *= -1
-		value -= 1
-	end
-	
-	return value
-end
-
---- writes unsigned 24-bit integer to buffer
-function types.writeu24(b: buffer, offset: number, value: number)
-	buffer.writebits(b, offset * 8, 24, value)
-end
-
---- reads unsigned 24-bit integer from buffer
-function types.readu24(b: buffer, offset: number)
-	return buffer.readbits(b, offset * 8, 24)
-end
-
---- returns a `int16`-width matrix-buffer \
---- space complexity of `2 + (2*columns*rows)` \
---- *matrix value placements start at offset `2`, as column/row info is stored in the first 2 bytes. \
---- args passed into mutator functions, however, should be zero-indexed.*
-function types.creatematrix(columns: number, rows: number)
-	local m = buffer.create( 2 + (2 * columns * rows) )
-
-	buffer.writeu8(m, 0, columns)
-	buffer.writeu8(m, 1, rows)
-
-	return m
-end
-
---- writes value to matrix
-function types.matrixwrite(m: buffer, column: number, row: number, value: number)
-	local width = 2 * buffer.readu8(m, 0)
-	local offset = 2 + (2 * column) + (row * width)
-
-	buffer.writei16(m, offset, value)
-end
-
---- extract value from matrix
-function types.matrixextract(m: buffer, column: number, row: number)
-	local width = 2 * buffer.readu8(m, 0)
-	local offset = 2 + (2 * column) + (row * width)
-
-	return buffer.readi16(m, offset)
-end
-
---- clears matrix, preserving the first two bits that contain row/column info \
---- equivalent to `buffer.fill(m, 2, 0)`
-function types.matrixclear(m: buffer)
-	buffer.fill(m, 2, 0)
-end
-
---- reads set of values along row of matrix
-function types.matrixreadrow(m: buffer, row: number): {number}
-	local columns = buffer.readu8(m, 0)
-	local width = 2 * columns
-	local offset = 2 + (row * width)
-
-	local r = table.create(columns, 0)
-
-	for i = 1, columns do
-		r[i] = buffer.readi16(m, offset)
-		offset += 2
-	end
-
-	return r
-end
-
---- returns a copy of row of matrix
-function types.matrixextractrow(m: buffer, row: number)
-	local columns = buffer.readu8(m, 0)
-	local width = 2 * columns
-	local offset = 2 + (row * width)
-
-	local copy = buffer.create(width)
-	buffer.copy(copy, 0, m, offset, width)
-
-	return copy
-end
-
---- returns a string interpretation of matrix row
-function types.matrixinterpretrow(m: buffer, row: number)
-	local columns = buffer.readu8(m, 0)
-	local width = 2 * columns
-	local offset = 2 + (row * width)
-
-	local str = ""
-	for _ = 1, columns do
-		str ..= string.format("%05d ", buffer.readi16(m, offset)) --- format precision is 05d because i16's have at most 5 integers not including the sign
-		offset += 2
-	end
-
-	return str
-end
-
---- reads sum of values along column of matrix
-function types.matrixreadcolumn(m: buffer, column: number)
-	local rows = buffer.readu8(m, 1)
-	local width = 2 * buffer.readu8(m, 0)
-	local offset = 2 + (2 * column)
-
-	local sum = 0
-	for _ = 1, rows do
-		sum += buffer.readi16(m, offset)
-		offset += width
-	end
-
-	return sum
-end
-
---- returns a copy of column of matrix
-function types.matrixextractcolumn(m: buffer, column: number)
-	local rows = buffer.readu8(m, 1)
-	local width = 2 * buffer.readu8(m, 0)
-	local offset = 2 + (2 * column)
-
-	local copy = buffer.create(2 * rows)
-	for i = 0, rows - 1, 1 do
-		buffer.writei16(copy, 2 * i, buffer.readi16(m, offset))
-		offset += width
-	end
-
-	return copy
-end
-
---- returns a string interpretation of matrix row
-function types.matrixinterpretcolumn(m: buffer, column: number)
-	local rows = buffer.readu8(m, 1)
-	local width = 2 * buffer.readu8(m, 0)
-	local offset = 2 + (2 * column)
-
-	local str = ""
-	for _ = 1, rows do
-		str ..= string.format("%05d ", buffer.readi16(m, offset)) --- format precision is 05d because i16's have at most 5 integers not including the sign
-		offset += width
-	end
-
-	return str
-end
-
---- returns a width-wide bar \
---- `width: 2 -> 2*u8` `[u8 value (?=maxvalue), u8 maxvalue]` \
---- `width: 4 -> 2*u16` `[u16 value (?=maxvalue), u16 maxvalue]` \
---- `width: 8 -> 2*f32` `[f32 value (?=maxvalue), f32 maxvalue]`
-function types.createbar(width: number, maxvalue: number, value: number?)
-	local b = buffer.create(width)
-
-	if width == 2 then
-		buffer.writeu8(b, 0, value or maxvalue)
-		buffer.writeu8(b, 1, maxvalue)
-	elseif width == 4 then
-		buffer.writeu16(b, 0, value or maxvalue)
-		buffer.writeu16(b, 2, maxvalue)
-	elseif width == 8 then
-		buffer.writef32(b, 0, value or maxvalue)
-		buffer.writef32(b, 4, maxvalue)
-	else
-		error("bar has width of " .. tostring(width) .. ", expected 2(2*u8), 4(2*u16) or 8(2*f32)")
-	end
-
-	return b
-end
-
---- writes value to bar
-function types.barwritevalue(b: buffer, value: number)
-	local width = buffer.len(b)
-
-	if width == 2 then
-		buffer.writeu8(b, 0, math.clamp(value, 0, buffer.readu8(b, 1)))
-	elseif width == 4 then
-		buffer.writeu16(b, 0, math.clamp(value, 0, buffer.readu16(b, 2)))
-	elseif width == 8 then
-		buffer.writef32(b, 0, math.clamp(value, 0, buffer.readf32(b, 4)))
-	else
-		error("bar has width of " .. tostring(width) .. ", expected 2(2*u8), 4(2*u16) or 8(2*f32)")
-	end
-end
-
---- writes maxvalue to bar
-function types.barwritemaxvalue(b: buffer, maxvalue: number)
-	local width = buffer.len(b)
-
-	if width == 2 then
-		buffer.writeu8(b, 1, maxvalue)
-
-		local value = buffer.readu8(b, 0)
-		if value > maxvalue then
-			buffer.writeu8(b, 0, math.clamp(value, 0, maxvalue))
-		end
-	elseif width == 4 then
-		buffer.writeu16(b, 2, maxvalue)
-
-		local value = buffer.readu16(b, 0)
-		if value > maxvalue then
-			buffer.writeu16(b, 0, math.clamp(value, 0, maxvalue))
-		end
-	elseif width == 8 then
-		buffer.writef32(b, 4, maxvalue)
-
-		local value = buffer.readf32(b, 0)
-		if value > maxvalue then
-			buffer.writef32(b, 0, math.clamp(value, 0, maxvalue))
-		end
-	else
-		error("bar has width of " .. tostring(width) .. ", expected 2(2*u8), 4(2*u16) or 8(2*f32)")
-	end
-end
-
---- returns stored value of bar
-function types.barreadvalue(b: buffer)
-	local width = buffer.len(b)
-	
-	if width == 2 then
-		return buffer.readu8(b, 0)
-	elseif width == 4 then
-		return buffer.readu16(b, 0)
-	elseif width == 8 then
-		return buffer.readf32(b, 0)
-	else
-		error("bar has width of " .. tostring(width) .. ", 2(2*u8), expected 4(2*u16) or 8(2*f32)")
-	end
-end
-
---- returns stored maxvalue of bar
-function types.barreadmaxvalue(b: buffer)
-	local width = buffer.len(b)
-	
-	if width == 2 then
-		return buffer.readu8(b, 1)
-	elseif width == 4 then
-		return buffer.readu16(b, 2)
-	elseif width == 8 then
-		return buffer.readf32(b, 4)
-	else
-		error("bar has width of " .. tostring(width) .. ", 2(2*u8), expected 4(2*u16) or 8(2*f32)")
-	end
-end
-
---- returns bar `value, maxvalue`
-function types.barunpack(b: buffer)
-	local width = buffer.len(b)
-	
-	if width == 2 then
-		return buffer.readu8(b, 0), buffer.readu8(b, 1)
-	elseif width == 4 then
-		return buffer.readu16(b, 0), buffer.readu16(b, 2)
-	elseif width == 8 then
-		return buffer.readf32(b, 0), buffer.readf32(b, 4)
-	else
-		error("bar has width of " .. tostring(width) .. ", 2(2*u8), expected 4(2*u16) or 8(2*f32)")
-	end
-end
-
---- returns 9-wide state `[f64 expiry (?=0), u8 value (?=1)]`
-function types.createstate(time: number?, value: number?)
-	local s = buffer.create(9)
-	buffer.writef64(s, 0, time or 0)
-	buffer.writeu8(s, 8, value or 1)
-
-	return s
-end
-
---- returns `f64` state expiry
-function types.statereadexpiry(s: buffer)
-	return buffer.readf64(s, 0)
-end
-
---- writes to expiry portion of state
-function types.statewriteexpiry(s: buffer, expiry: number)
-	buffer.writef64(s, 0, expiry)
-end
-
---- returns `u8` state value
-function types.statereadvalue(s: buffer)
-	return buffer.readu8(s, 8)
-end
-
---- writes to value portion of state
-function types.statewritevalue(s: buffer, value: number)
-	buffer.writeu8(s, 8, value)
-end
-
---- returns \
---- `f64` state expiry \
---- `u8` state value
-function types.stateunpack(s: buffer)
-	return buffer.readf64(s, 0), buffer.readu8(s, 8)
-end
-
---- returns numeric stage `base / base` \
---- `base (?=2)`: stage base value
-function types.createstage(width: number, base: number?)
-	local s = buffer.create(width)
-	for i = 0, width - 1, 1 do
-		local bitoffset = i * 8
-		buffer.writebits(s, bitoffset, 4, base or 2)
-		buffer.writebits(s, bitoffset + 4, 4, base or 2)
-	end
-
-	return s
-end
-
---- writes value to signed portion of numeric stage
---- ```luau
---- createstage(1) --- 2/2
---- stagewrite(s, 0, 5) --- 5/2
---- stagewrite(s, 0, -3) --- 5/3
---- ```
-function types.stagewrite(s: buffer, byteoffset: number, value: number)
-	local bitoffset = byteoffset * 8
-	if math.sign(value) == 1 then
-		buffer.writebits(s, bitoffset, 4, math.clamp(value, 0, 15))
-	else
-		buffer.writebits(s, bitoffset + 4, 4, math.clamp(math.abs(value), 0, 15))
-	end
-end
-
---- adds value to signed portion of numeric stage
---- ```luau
---- createstage(1) --- 2/2
---- stagedelta(s, 0, 1) --- 3/2
---- stagedelta(s, 0, -2) --- 3/4
---- ```
-function types.stagedelta(s: buffer, byteoffset: number, value: number)
-	local bitoffset = byteoffset * 8
-	if math.sign(value) == 1 then
-		buffer.writebits(s, bitoffset, 4, math.clamp(value + buffer.readbits(s, bitoffset, 4), 0, 15))
-	else
-		buffer.writebits(s, bitoffset + 4, 4, math.clamp(math.abs(value) + buffer.readbits(s, bitoffset + 4, 4), 0, 15))
-	end
-end
-
---- returns numeric stage `x / y`
-function types.stageread(s: buffer, byteoffset: number)
-	local bitoffset = byteoffset * 8
-	return buffer.readbits(s, bitoffset, 4) / buffer.readbits(s, bitoffset + 4, 4)
 end
 
 --- returns `bit32.replace(0, 1, 0)` intended for todo32 library \
@@ -815,8 +308,11 @@ function types.diff(new: {[string]: any}, old: {[string]: any})
 					end
 				end
 			elseif newtype == "buffer" then
-				if not types.compare(newvalue, oldvalue) then
-					result[key] = types.duplicate(newvalue)
+				if not compare(newvalue, oldvalue) then
+					local dupe = buffer.create(buffer.len(newvalue))
+					buffer.copy(dupe, 0, newvalue)
+
+					result[key] = dupe
 				end
 			else
 				if newvalue ~= oldvalue then
@@ -828,7 +324,10 @@ function types.diff(new: {[string]: any}, old: {[string]: any})
 				if newtype == "table" then
 					result[key] = types.deepcopy(newvalue)
 				elseif newtype == "buffer" then
-					result[key] = types.duplicate(newvalue)
+					local dupe = buffer.create(buffer.len(newvalue))
+					buffer.copy(dupe, 0, newvalue)
+
+					result[key] = dupe
 				else
 					result[key] = newvalue
 				end
@@ -1182,6 +681,10 @@ function types.createstring(len: number)
 	return buffer.tostring(b)
 end
 
+local function subf(x: string)
+	return string.len(x) == 1 and "0" .. x or x
+end
+
 --- formats time into a hour-minute-second-esque notation
 function types.hourminutesecond(time: number, notation: "DD:HH:MM:SS" | "DDdHHhMMmSSs" | "HH:MM:SS" | "MM:SS" | "M:SS", appendms: boolean?): string
 	--[[
@@ -1481,27 +984,24 @@ function types.jsondecode(input: string)
 	return HttpService:JSONDecode(input)
 end
 
---- runs function at second interval `x` \
---- `immediate(?=true)`: function is called on the next frame \
---- `time(?=indefinite)`: how long this framerule will run until stopping \
---- returns \
---- `RBXScriptConnection connection` heartbeat connection this framerule is bound do \
---- `thread? thread` `task.delay(time, connection.Disconnect, connection)` thread if `time ~= nil` \
---- \
---- if `x == nil`, `f` (bound to `connection`) will be called every device heartbeat
-function types.framerule(x: number?, f: (dt: number, elapsed: number) -> (), immediate: boolean?, time: number?)
-	if time then
-		local connection = types.framerule(x, f, immediate)
-
-		return connection, task.delay(time, connection.Disconnect, connection)::thread? --- casted w ? bc of non recursive case
-	else
+--- runs function at second interval `x` for `time` seconds \
+--- exceptions: \
+--- `x == -1`: function is called every heartbeat \
+--- `time == -1`: framerule runs indefinitely
+function types.framerule(x: number, time: number, f: (dt: number, elapsed: number) -> (), immediate: boolean?): (RBXScriptConnection, thread?)
+	if time == -1 then
 		local start = os.clock()
 		local recent = os.clock()
 		if immediate ~= false then
 			recent -= x or 1/60 --- doesn't matter
 		end
 
-		if x then
+		if x == -1 then
+			return RunService.Heartbeat:Connect(function(dt)
+				local now = os.clock()
+				f(dt, now - start)
+			end)
+		else
 			return RunService.Heartbeat:Connect(function()
 				local now = os.clock()
 				local dt = now - recent
@@ -1511,13 +1011,11 @@ function types.framerule(x: number?, f: (dt: number, elapsed: number) -> (), imm
 					f(dt, now - start)
 				end
 			end)
-		else
-			return RunService.Heartbeat:Connect(function(dt)
-				local now = os.clock()
-				f(dt, now - start)
-			end)
 		end
+	else
+		local connection = types.framerule(x, -1, f, immediate)
 
+		return connection, task.delay(time, connection.Disconnect, connection)
 	end
 end
 

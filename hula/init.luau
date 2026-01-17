@@ -5,13 +5,14 @@
 --- a table of roblox-luau convenience modules \
 --- [*view hula on github*](https://github.com/00826/hula)
 return table.freeze{
-	color3h = require(script:WaitForChild("color3h"));
-	gui = require(script:WaitForChild("gui"));
-	inputs = require(script:WaitForChild("inputs"));
-	instanceh = require(script:WaitForChild("instanceh"));
-	mathh = require(script:WaitForChild("mathh"));
-	net = require(script:WaitForChild("net"));
-	patronage = require(script:WaitForChild("patronage"));
-	types = require(script:WaitForChild("types"));
-	vector3h = require(script:WaitForChild("vector3h"));
+	bufferh = require(script.bufferh);
+	color3h = require(script.color3h);
+	gui = require(script.gui);
+	inputs = require(script.inputs);
+	instanceh = require(script.instanceh);
+	mathh = require(script.mathh);
+	net = require(script.net);
+	patronage = require(script.patronage);
+	types = require(script.types);
+	vector3h = require(script.vector3h);
 }
