@@ -681,102 +681,111 @@ function types.createstring(len: number)
 	return buffer.tostring(b)
 end
 
-local function subf(x: string)
-	return string.len(x) == 1 and "0" .. x or x
-end
+--- creates a timestamp string from: \
+--- `selector` string composed of any combination of: (separated by spaces) \
+--- `"dd"`: days \
+--- `"hh"`: hours \
+--- `"mm"`: minutes \
+--- `"ss"`: seconds \
+--- `"ms"`: milliseconds
+--- 
+--- `separator` string: \
+--- `"punc"` -> `00:00:00:00.000` \
+--- `"abbr"` -> `00d00h00m00s000ms` \
+--- `"word"` -> `00 days 00 hours 00 minutes 00 seconds 000 milliseconds` \
+--- 
+--- ```lua
+--- types.timestring(3.141, "ss ms", "punc", 1) --- 3s141ms
+--- ```
+function types.timestring(x: number, selector: string, separator: "punc" | "abbr" | "word", zeropadding: number)
+	local ts = ""
 
---- formats time into a hour-minute-second-esque notation
-function types.hourminutesecond(time: number, notation: "DD:HH:MM:SS" | "DDdHHhMMmSSs" | "HH:MM:SS" | "MM:SS" | "M:SS", appendms: boolean?): string
-	--[[
-		os.date("!%X", time) is the fastest for all inputs below 86400, because any input at or above 86400 breaks the formatting
-		string.gsub(string.format(), time, subf) is the second fastest for all inputs, never has a formatting break, but is ~10% slower than os.date("!%X", time)
-		combining both through comparing time >= 86400 gives a faster average across all possible inputs
-	]]
-	local hms = ""
-	if notation == "DD:HH:MM:SS" then
-		if time >= 86400 then
-			local days = time // 86400
-			time -= days * 86400
-			local hours = time // 3600
-			time -= hours * 3600
-			local minutes = time // 60
-			time -= minutes * 60
-
-			hms = string.gsub(string.format("%d:%d:%d:%d", days, hours, minutes, time), "%d+", subf)
-		else
-			hms = "00:" .. os.date("!%X", time)
+	if string.find(selector, "dd") then
+		local y = 0
+		if x >= 86400 then
+			y = x // 86400
+			x -= y * 86400
 		end
-	elseif notation == "DDdHHhMMmSSs" then
-		local days = time // 86400
-		time -= days * 86400
-		local hours = time // 3600
-		time -= hours * 3600
-		local minutes = time // 60
-		time -= minutes * 60
 
-		hms = string.gsub(string.format("%dd%dh%dm%ds", days, hours, minutes, time), "%d+", subf)
-	elseif notation == "HH:MM:SS" then
-		if time >= 86400 then
-			local hours = time // 3600
-			time -= hours * 3600
-			local minutes = time // 60
-			time -= minutes * 60
-
-			hms = string.gsub(string.format("%d:%d:%d", hours, minutes, time), "%d+", subf)
-		else
-			hms = os.date("!%X", time)
-		end
-	elseif notation == "MM:SS" then
-		if time >= 3600 then
-			local minutes = time // 60
-			time -= minutes * 60
-			hms = string.gsub(string.format("%d:%d", minutes, time), "%d+", subf)
-		else
-			hms = string.sub(os.date("!%X", time), 4, 8)
-		end
-	elseif notation == "M:SS" then
-		if time >= 3600 then
-			local minutes = time // 60
-			time -= minutes * 60
-			hms = string.gsub(string.format("%d:%d", minutes, time), "%d+", subf)
-		else
-			hms = string.gsub(string.sub(os.date("!%X", time), 4, 8), "^0", "")
+		if separator == "punc" then
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d:", y)
+		elseif separator == "abbr" then
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "dd", y)
+		elseif separator == "word" then
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d days ", y)
 		end
 	end
+	if string.find(selector, "hh") then
+		local y = 0
+		if x >= 3600 then
+			y = x // 3600
+			x -= y * 3600
+		end
 
-	if appendms then
-		local stringtime = tostring(time)
+		if separator == "punc" then
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d:", y)
+		elseif separator == "abbr" then
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "dh", y)
+		elseif separator == "word" then
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d hours ", y)
+		end
+	end
+	if string.find(selector, "mm") then
+		local y = 0
+		if x >= 60 then
+			y = x // 60
+			x -= y * 60
+		end
 
-		local init = string.find(stringtime, "%.")
+		if separator == "punc" then
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d:", y)
+		elseif separator == "abbr" then
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "dm", y)
+		elseif separator == "word" then
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d minutes ", y)
+		end
+	end
+	if string.find(selector, "ss") then
+		local y = 0
+		if x >= 1 then
+			y = x // 1
+			x -= y * 1
+		end
+		
+		if separator == "punc" then
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d", y)
+		elseif separator == "abbr" then
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "ds", y)
+		elseif separator == "word" then
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d seconds ", y)
+		end
+	end
+	if string.find(selector, "ms") then
+		local stringx = string.format("%f", x)
+		local init = string.find(stringx, "%.")
 		if init then
-			local append = string.sub(stringtime, init, init + 3)
-
-			for i = 2, 4, 1 do
-				local substring = string.sub(append, i, i)
-				if substring == "" then
-					append ..= "0"
-				end
+			local append = string.sub(stringx, init + 1, init + 3)
+			for i = 1, 3 - string.len(append) do
+				append ..= "0"
 			end
 
-			hms ..= append
-		else
-			hms ..= ".000"
+			if separator == "punc" then
+				ts ..= string.format(".%s", append)
+			elseif separator == "abbr" then
+				ts ..= string.format("%sms", append)
+			elseif separator == "word" then
+				ts ..= string.format("%s milliseconds", append)
+			end
 		end
 	end
 
-	return hms
-end
-
-local function monthtoseason(m: number)
-	--- m -= 3 --- shift by 3 months
-	--- m %= 12 --- rotate around 12 months
-	--- m //= 3 --- 12/3 = 4 seasons
-	--- m += 1 --- non-zero
-	if m > 12 then
-		m %= 12
+	--- trailing non-alphanumerics (targets trailing zeroes and punctuation)
+	local init = string.find(ts, "%W+", string.len(ts))
+	if init then
+		ts = string.sub(ts, 1, init - 1)
 	end
 
-	return 1 + (((m - 3) % 12) // 3)
+	return ts
 end
 
 --- returns a timestamp of current utc time with respect to format option or time in minutes
@@ -865,29 +874,23 @@ function types.timestamp(format: "hour" | "halfday" | "day" | "week" | "month" |
 			timestamp.seed = tonumber(year .. month) :: number
 		elseif format == "season" then
 			--- `February 14, 2024` --> `"2024_1"`
-			--- Mar-May: `1` (spring)
-			--- Jun-Aug: `2` (summer)
-			--- Sep-Nov: `3` (fall)
-			--- Dec-Feb: `4` (winter)
+			--- Jan-Mar: `1` (spring)
+			--- Apr-Jun: `2` (summer)
+			--- Jul-Sep: `3` (autumn)
+			--- Oct-Dec: `4` (winter)
 
 			local month = datetable.month
-			local thisseason = monthtoseason(month)
-			local nextseason = thisseason
+			local season = 1 + ((month-1) // 3)
 
-			--- rotate around 4 seasons
-			if nextseason >= 4 then
-				nextseason %= 4
+			local nextyear = 0
+			local nextseasonmonth = 1 + (season * 3)
+			if nextseasonmonth > 12 then
+				nextyear += 1
+				nextseasonmonth %= 12
 			end
-			nextseason += 1
 
-			local nextseasonmonth = monthtoseason(nextseason)
-			
 			nextdatetable.month = nextseasonmonth
-
-			if nextdatetable.month < nextseasonmonth then
-				--- modulo into next year
-				nextdatetable.year += 1
-			end
+			nextdatetable.year += nextyear
 
 			nextdatetable.day = 1
 			nextdatetable.hour = 0
@@ -895,8 +898,8 @@ function types.timestamp(format: "hour" | "halfday" | "day" | "week" | "month" |
 			nextdatetable.sec = 0
 
 			local year = datetable.year
-			timestamp.id = string.format("%d_%d", year, thisseason)
-			timestamp.seed = tonumber(year .. thisseason) :: number
+			timestamp.id = string.format("%d_%d", year, season)
+			timestamp.seed = tonumber(year .. season) :: number
 		elseif format == "biannual" then
 			--- `February 14, 2024` --> `"2024_1"`
 			--- Jan-Jun: `1` (SS)

@@ -327,4 +327,16 @@ function patronage.regioncode(player: Player)
 	return pcall(LocalizationService.GetCountryRegionForPlayerAsync, LocalizationService, player)
 end
 
+--- returns relevant unicode tags (verified (\u{E000}), premium (\u{E001})) for player
+function patronage.unicodetags(player: Player)
+	local result = table.create(2)
+	if player.HasVerifiedBadge then
+		table.insert(result, "\u{E000}")
+	elseif player.MembershipType == Enum.MembershipType.Premium then
+		table.insert(result, "\u{E001}")
+	end
+
+	return result
+end
+
 return patronage

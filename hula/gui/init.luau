@@ -189,7 +189,11 @@ type rbxthumb =
 &	((type: "Outfit", id: number, size: "150x150"|"420x420") -> string)
 
 local rbxthumb: rbxthumb = function(type, id, size)
-	return string.format("rbxthumb://type=%s&id=%d&w=%s&h=%s", type, id, unpack(string.split(size, "x")))
+	if id <= 0 then
+		return ""
+	else
+		return string.format("rbxthumb://type=%s&id=%d&w=%s&h=%s", type, id, unpack(string.split(size, "x")))
+	end
 end
 
 gui.rbxthumb = rbxthumb
