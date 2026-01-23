@@ -541,7 +541,7 @@ function gui.findhovertarget(list: {GuiObject}, insetmouselocation: Vector2): Gu
 
 	local inbounds = table.create(#list)
 
-	for _, guiobject in list do
+	for _, guiobject in ipairs(list) do
 		local topleft = guiobject.AbsolutePosition
 		local bottomright = topleft + guiobject.AbsoluteSize
 

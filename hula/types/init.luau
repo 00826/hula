@@ -184,10 +184,10 @@ end
 
 --- applies xp `value` to level-xp unsigned integer `p32`
 --- ```
----         level                 xp
---- bits  [0000 0000] [00000000 00000000 00000000]
---- range [31 .. 24]           [23 .. 0]
---- limit  [0, 255]          [0, 16777215]
+--- key   xp                           level
+--- bits  [00000000 00000000 00000000] [00000000]
+--- range [0 .. 23]                    [24 .. 31]
+--- value [0, 16777215]                [0, 255]
 --- ```
 --- returns: \
 --- `unsigned long p32`: modified `p32` \
@@ -280,141 +280,337 @@ function types.deepcopy(t: {[any]: any}): {[any]: any}
 	return copy
 end
 
---- returns a diff-table describing changes made from `old -> new` \
---- \
---- `[!]` nil-values are of type `string` and equate to `"nil"`
-function types.diff(new: {[string]: any}, old: {[string]: any})
-	local result: { [any]: any } = {}
+--- returns a data type (`string|table`) describing `new - old` \
+--- some string values may cause the return type to not be accurate. \
+--- this is because the raw diff between two arrays *cannot* be reconciled normally. \
+--- `[!]` `"\u{0000}"` indicates a nil value \
+--- `[!]` `"\u{0001}"` indicates no change \
+--- `[!]` `"\u{0002}"` indicates an empty table (`{1, 2, 3} -> {}`) for a shorthand `table.clear()`
+function types.difference(old: {[any]: any}, new: {[any]: any}): any
+	local result = {}
 
-	for key, newvalue in new do
-		local oldvalue = old[key]
+	local oldtabletype = type(next(old)::any)
+	local newtabletype = type(next(new)::any)
 
-		local newtype = type(newvalue)
-		local oldtype = type(oldvalue)
+	if (oldtabletype ~= newtabletype) --- mixed table
+	and (oldtabletype ~= "nil" or newtabletype ~= "nil") --- non-nil
+	and (oldtabletype == "number" or newtabletype == "number") --- either-or number
+	and (oldtabletype == "string" or newtabletype == "string") --- either-or string
+	then
+		error(string.format(
+			"attempt to diff mixed-key table of types: {[%s]: ...} -> {[%s]: ...}",
+			oldtabletype,
+			newtabletype
+		))
+	end
 
-		if newtype == oldtype then
-			if newtype == "table" then
-				if next(newvalue) == nil then --- empty
-					if next(oldvalue) ~= nil then
-						result[key] = {}
+	if #new > 0 and #old > 0 then
+		--- array diff
+		local oldlen = #old
+		for j, range in ipairs({
+			{oldlen, 1, -1}; --- iter backwards from oldvalue len to 1
+			{oldlen + 1, #new, 1}; --- iter forwards if newvalue is longer than oldvalue
+		}) do
+			for i = range[1], range[2], range[3] do
+				local newvalue = new[i]
+				local newtype = type(newvalue)
+				local oldvalue = old[i]
+				local oldtype = type(oldvalue)
+
+				if newtype == oldtype then
+					if newtype == "table" then
+						local reentry = types.difference(oldvalue, newvalue)
+						result[i] = reentry
+
+					elseif newtype == "buffer" then
+						if compare(newvalue, oldvalue) == true then
+							result[i] = "\u{0001}" --- no change
+						else
+							local b = buffer.create(buffer.len(newvalue))
+							buffer.copy(b, 0, newvalue)
+
+							result[i] = b
+						end
+					elseif newtype == "nil" then
+						result[i] = "\u{0000}"
+					else
+						if newvalue == oldvalue then
+							result[i] = "\u{0001}" --- no change
+						else
+							result[i] = newvalue
+						end
 					end
 				else
-					local diff = types.diff(newvalue, oldvalue)
-					if next(diff) ~= nil then
-						result[key] = {}
-						for a, b in diff do
-							result[key][a] = b
+					if newvalue ~= oldvalue then
+						if newtype == "table" then
+							result[i] = types.deepcopy(newvalue)
+						elseif newtype == "buffer" then
+							local b = buffer.create(buffer.len(newvalue))
+							buffer.copy(b, 0, newvalue)
+
+							result[i] = b
+						elseif newtype == "nil" then
+							result[i] = "\u{0000}"
+						else
+							result[i] = newvalue
 						end
 					end
 				end
-			elseif newtype == "buffer" then
-				if not compare(newvalue, oldvalue) then
-					local dupe = buffer.create(buffer.len(newvalue))
-					buffer.copy(dupe, 0, newvalue)
-
-					result[key] = dupe
-				end
-			else
-				if newvalue ~= oldvalue then
-					result[key] = newvalue
-				end
-			end
-		else
-			if newvalue ~= oldvalue then
-				if newtype == "table" then
-					result[key] = types.deepcopy(newvalue)
-				elseif newtype == "buffer" then
-					local dupe = buffer.create(buffer.len(newvalue))
-					buffer.copy(dupe, 0, newvalue)
-
-					result[key] = dupe
-				else
-					result[key] = newvalue
-				end
-			end
-		end
-	end
-
-	for key in old do
-		if new[key] == nil then
-			result[key] = "nil"
-		end
-	end
-
-	return result
-end
-
---- reconciles result of `types.diff(...)` into `t` \
---- attempts to convert string-keys of `t` into numeric indices \
---- to account for array diffs being converted from `{any} -> {[string]: any}` when passed over the network
-function types.reconcile(t: {}, diff: typeof(types.diff(...)))
-	if #diff > 0 then
-		for i, v in ipairs(diff) do
-			if type(v) == "table" then
-				if not t[i] then
-					t[i] = {}
-				end
-				if next(v) == nil then
-					types.rbxtypeclear(t[i])
-				end
-
-				types.reconcile(t[i], v)
-			elseif type(v) == "buffer" then
-				local preexisting = t[i]
-				local len = buffer.len(v)
-				if type(preexisting) == "buffer" and buffer.len(preexisting) == len then
-					buffer.copy(preexisting, 0, v, 0)
-				else
-					local b = buffer.create(len)
-					buffer.copy(b, 0, v, 0)
-					t[i] = b::any
-				end
-			elseif v == "nil" then
-				if type(t[i]) == "table" then
-					types.rbxtypeclear(t[i])
-				end
-				t[i] = nil
-			else
-				t[i] = v
 			end
 		end
 	else
-		for k, v in diff do
-			--- assuming unordered a[2 = "a", 3 = "b"] will not lose order when iterated through
-			--- local i = tonumber(k)
-			--- if i ~= nil then
-			--- 	k = i
-			--- end
+		--- dictionary diff
+		for newkey, newvalue in new do
+			local newtype = type(newvalue)
+			local oldvalue = old[newkey]
+			local oldtype = type(oldvalue)
 
-			if type(v) == "table" then
-				if not t[k] then
-					t[k] = {}
-				end
-				if next(v) == nil then
-					types.rbxtypeclear(t[k])
-				end
+			--- print(oldtype, oldvalue, "->", newkey, newtype, newvalue)
 
-				types.reconcile(t[k], v)
-			elseif type(v) == "buffer" then
-				local preexisting = t[k]
-				local len = buffer.len(v)
-				if type(preexisting) == "buffer" and buffer.len(preexisting) == len then
-					buffer.copy(preexisting, 0, v, 0)
+			if newtype == oldtype then
+				if newtype == "table" then
+					local reentry = types.difference(oldvalue, newvalue)
+					result[newkey] = reentry
+
+				elseif newtype == "buffer" then
+					if compare(newvalue, oldvalue) == true then
+						--- result[newkey] = "\u{0001}" --- no change
+						continue
+					else
+						local b = buffer.create(buffer.len(newvalue))
+						buffer.copy(b, 0, newvalue)
+
+						result[newkey] = b
+					end
+				elseif newtype == "nil" then
+					result[newkey] = "\u{0000}"
 				else
-					local b = buffer.create(len)
-					buffer.copy(b, 0, v, 0)
-					t[k] = b::any
+					if newvalue == oldvalue then
+						---- result[newkey] = "\u{0001}" --- no change
+						continue
+					else
+						result[newkey] = newvalue
+					end
 				end
-			elseif v == "nil" then
-				if type(t[k]) == "table" then
-					types.rbxtypeclear(t[k])
-				end
-				t[k] = nil
 			else
-				t[k] = v
+				if newvalue ~= oldvalue then
+					if newtype == "table" then
+						result[newkey] = types.deepcopy(newvalue)
+					elseif newtype == "buffer" then
+						local b = buffer.create(buffer.len(newvalue))
+						buffer.copy(b, 0, newvalue)
+
+						result[newkey] = b
+					elseif newtype == "nil" then
+						result[newkey] = "\u{0000}"
+					else
+						result[newkey] = newvalue
+					end
+				end
+			end
+		end
+
+		for oldkey in old do
+			if new[oldkey] == nil then
+				result[oldkey] = "\u{0000}"
 			end
 		end
 	end
+
+	--- check if collapsible into single character (table is composed entirely of no-change strings \u{0001} or nil strings \u{0000})
+	--- returns character describing whether the diffs contained in t can be collapsed into
+	--- a table.clear() call ("\u{0002}")
+	--- or a no-change ("\u{0001}")
+	--- or no collapse ("")
+	local cancollapseintotableclear = true
+	local cancollapseintonochange = true
+
+	for _, v in result do
+		if v ~= "\u{0000}" then
+			cancollapseintotableclear = false
+		end
+		if v ~= "\u{0001}" then
+			cancollapseintonochange = false
+		end
+	end
+
+	if cancollapseintotableclear and cancollapseintonochange then
+		return nil
+	end
+	
+	if cancollapseintonochange == true then
+		return "\u{0001}"
+	elseif cancollapseintotableclear == true then
+		return "\u{0002}"
+	else
+		return result
+	end
+end
+
+--- reconcildes `diff` to `t` such that: \
+--- ```lua
+--- local b = { ... }
+--- local a = { ... }
+--- local diff = types.difference(b, a)
+--- 
+--- local t = { ... } --- where `t == b`
+--- types.reconcile(t, diff)
+--- types.difference(t, a) --- -> "%1" (no change)
+--- ```
+function types.reconcile(t: {[any]: any}, diff: {[any]: any}|string): any
+	if type(diff) == "table" then
+		local oldtabletype = type(next(t)::any)
+		local difftabletype = type(next(diff)::any)
+
+		if (oldtabletype ~= difftabletype) --- mixed table
+		and (oldtabletype ~= "nil" or difftabletype ~= "nil") --- non-nil
+		and (oldtabletype == "number" or difftabletype == "number") --- either-or number
+		and (oldtabletype == "string" or difftabletype == "string") --- either-or string
+		then
+			print(t, diff)
+			error(string.format(
+				"attempt to reconcile mixed-key table of types: {[%s]: ...} -> {[%s]: ...}",
+				oldtabletype,
+				difftabletype
+			))
+		end
+
+		if #t > 0 and #diff > 0 then
+			--- reconcile array
+			local oldlen = #t
+			for j, range in ipairs({
+				{oldlen, 1, -1}; --- iter backwards from oldvalue len to 1
+				{oldlen + 1, #diff, 1}; --- iter forwards if newvalue is longer than oldvalue
+			}) do
+				for i = range[1], range[2], range[3] do
+					local diffvalue = diff[i]
+					local difftype = type(diffvalue)
+					local oldvalue = t[i]
+					local oldtype = type(oldvalue)
+
+					--- special string cases
+					if difftype == "string" then
+						if diffvalue == "\u{0000}" then
+							t[i] = nil
+
+							continue
+						elseif diffvalue == "\u{0001}" then
+							--- no change
+
+							continue
+						elseif diffvalue == "\u{0002}" then
+							if oldtype == "table" then
+								table.clear(oldvalue)
+							else
+								t[i] = {} --- maybe for safety?
+							end
+
+							continue
+						end
+					end
+
+					--- reconcile
+					if difftype == oldtype then
+						if difftype == "table" then
+							t[i] = types.reconcile(oldvalue, diffvalue)
+						elseif difftype == "buffer" then
+							--- save new buffer alloc if lengths are the same
+							if buffer.len(oldvalue) == buffer.len(diffvalue) then
+								buffer.copy(oldvalue, 0, diffvalue)
+							else
+								local b = buffer.create(buffer.len(diffvalue))
+								buffer.copy(b, 0, diffvalue)
+							end
+						elseif difftype == "nil" then
+							t[i] = nil
+						else
+							if diffvalue == oldvalue then
+								continue
+							else
+								t[i] = diffvalue
+							end
+						end
+					else
+						if difftype == "nil" then
+							t[i] = nil
+						else
+							t[i] = diffvalue
+						end
+					end
+				end
+			end
+		else
+			--- reconcile dictionary
+			for diffkey, diffvalue in diff do
+				local difftype = type(diffvalue)
+				local oldvalue = t[diffkey]
+				local oldtype = type(oldvalue)
+
+				--- special string cases
+				if difftype == "string" then
+					if diffvalue == "\u{0000}" then
+						t[diffkey] = nil
+
+						continue
+					elseif diffvalue == "\u{0001}" then
+						--- no change
+
+						continue
+					elseif diffvalue == "\u{0002}" then
+						if oldtype == "table" then
+							table.clear(oldvalue)
+						else
+							t[diffkey] = {} --- maybe for safety?
+						end
+
+						continue
+					end
+				end
+
+				--- reconcile
+				if difftype == oldtype then
+					if difftype == "table" then
+						t[diffkey] = types.reconcile(oldvalue, diffvalue)
+					elseif difftype == "buffer" then
+						--- save new buffer alloc if lengths are the same
+						if buffer.len(oldvalue) == buffer.len(diffvalue) then
+							buffer.copy(oldvalue, 0, diffvalue)
+						else
+							local b = buffer.create(buffer.len(diffvalue))
+							buffer.copy(b, 0, diffvalue)
+						end
+					elseif difftype == "nil" then
+						t[diffkey] = nil
+					else
+						if diffvalue == oldvalue then
+							continue
+						else
+							t[diffkey] = diffvalue
+						end
+					end
+				else
+					if difftype == "nil" then
+						t[diffkey] = nil
+					else
+						t[diffkey] = diffvalue
+					end
+				end
+			end
+		end
+	elseif type(diff) == "string" then
+		if diff == "\u{0000}" then
+			--- t should be nil, shouldn't ever arrive at this case
+			return nil
+		elseif diff == "\u{0001}" then
+			--- no change
+			return t
+		elseif diff == "\u{0002}" then
+			table.clear(t)
+			return t
+		end
+	end
+
+	return t
 end
 
 --- returns an item (`{id, ...}`)
@@ -987,36 +1183,48 @@ function types.jsondecode(input: string)
 	return HttpService:JSONDecode(input)
 end
 
---- runs function at second interval `x` for `time` seconds \
+--- runs function at `step` second interval for `time` seconds \
 --- exceptions: \
---- `x == -1`: function is called every heartbeat \
---- `time == -1`: framerule runs indefinitely
-function types.framerule(x: number, time: number, f: (dt: number, elapsed: number) -> (), immediate: boolean?): (RBXScriptConnection, thread?)
+--- `step == -1`: function is called every heartbeat \
+--- `time == -1`: bound function runs indefinitely
+function types.framerule(step: number, time: number, f: (dt: number, elapsed: number) -> (), immediate: boolean?): (RBXScriptConnection, thread?)
 	if time == -1 then
 		local start = os.clock()
 		local recent = os.clock()
 		if immediate ~= false then
-			recent -= x or 1/60 --- doesn't matter
+			recent -= step or 1/60 --- doesn't matter
 		end
 
-		if x == -1 then
+		if step == -1 then
 			return RunService.Heartbeat:Connect(function(dt)
-				local now = os.clock()
-				f(dt, now - start)
+				f(dt, os.clock() - start)
 			end)
 		else
 			return RunService.Heartbeat:Connect(function()
 				local now = os.clock()
 				local dt = now - recent
-				if dt > x then
-					recent = now - (dt - x)
+				if dt > step then
+					recent = now - (dt - step)
 
 					f(dt, now - start)
 				end
 			end)
 		end
 	else
-		local connection = types.framerule(x, -1, f, immediate)
+		local connection = types.framerule(step, -1, f, immediate)
+
+		return connection, task.delay(time, connection.Disconnect, connection)
+	end
+end
+
+--- runs function at `step` stepfrequency for `time` seconds \
+--- exceptions: \
+--- `time == -1`: bound function runs indefinitely
+function types.fixedstep(step: Enum.StepFrequency, time: number, f: (dt: number) -> ()): (RBXScriptConnection, thread?)
+	if time == -1 then
+		return RunService:BindToSimulation(f, step)
+	else
+		local connection = types.fixedstep(step, -1, f)
 
 		return connection, task.delay(time, connection.Disconnect, connection)
 	end

@@ -381,7 +381,7 @@ function bufferh.matrixtostringcolumn(m: buffer, column: number)
 	return str
 end
 
---- returns a bar
+--- creates a variable-width value-maxvalue bar
 function bufferh.createbar(format: unsignedinteger|"f64", value: number, maxvalue: number?)
 	local size = bufferh.intfloatbytesizes[format]
 	assert(size, string.format("unknown intfloat size for '%s'", format))
@@ -481,6 +481,12 @@ function bufferh.barunpack(b: buffer)
 end
 
 --- returns 9-wide state `[f64 expiry (?=0), u8 value (?=1)]`
+--- ```
+---       expiry      value   
+--- bytes [00000000]  [0]  
+--- range [0 .. 7]    [8]
+--- limit [f64]       [0, 255] 
+--- ```
 function bufferh.createstate(time: number?, value: number?)
 	local s = buffer.create(9)
 	buffer.writef64(s, 0, time or 0)
@@ -518,6 +524,12 @@ end
 
 --- returns numeric stage `base / base` \
 --- `base (?=2)`: stage base value
+--- ```
+--- key   numerator  denominator
+--- bits  [0000]     [0000]  
+--- range [0 .. 3]   [4 .. 7]
+--- value [0, 15]    [0, 15] 
+--- ```
 function bufferh.createstage(width: number, base: number?)
 	local s = buffer.create(width)
 	for i = 0, width - 1, 1 do
@@ -563,6 +575,47 @@ end
 function bufferh.stageread(s: buffer, byteoffset: number)
 	local bitoffset = byteoffset * 8
 	return buffer.readbits(s, bitoffset, 4) / buffer.readbits(s, bitoffset + 4, 4)
+end
+
+--- creates an atb bar
+--- ```
+--- key   phase     rotation  turn available
+--- bits  [0000]    [0000]    [64 (8 bytes)]
+--- range [0 .. 3]  [4 .. 7]  [8 .. 71]
+--- value [0, 15]   [0, 15]   [f64]
+--- ```
+function bufferh.createatb()
+	return buffer.create(1+8)
+end
+
+--- returns atb action phase
+function bufferh.atbreadphase(a: buffer)
+	return buffer.readbits(a, 0, 4)
+end
+
+--- writes atb action phase
+function bufferh.atbwritephase(a: buffer, value: number)
+	buffer.writebits(a, 0, 4, value)
+end
+
+--- returns atb action phase rotation offset
+function bufferh.atbreadrotation(a: buffer)
+	return buffer.readbits(a, 4, 4)
+end
+
+--- writes atb action phase rotation offset
+function bufferh.atbwriterotation(a: buffer, value: number)
+	buffer.writebits(a, 4, 4, value)
+end
+
+--- returns atb turn available time
+function bufferh.atbreadtime(a: buffer)
+	return buffer.readf64(a, 1)
+end
+
+--- writes atb turn available time
+function bufferh.atbwritetime(a: buffer, value: number)
+	buffer.writef64(a, 1, value)
 end
 
 return bufferh

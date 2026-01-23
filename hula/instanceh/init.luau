@@ -1558,72 +1558,82 @@ function instanceh.preloadasync(assets: {any}, f: ((contentstring: string, asset
 	return pcall(contentprovider.PreloadAsync, contentprovider, assets, f)
 end
 
---- filters list of preload-able assets, removing possible duplicates to save time \
+--- filters list of preload-able asset types \
 --- *"...however these strings must correspond to image assets. Attempting to load non-image assets through the use of their content ID strings will result in failure."*
-function instanceh.preloadfilter(assets: { string | Instance }): { string | Instance }
-	local list = table.create(#assets) :: { string | Instance }
+function instanceh.preloadable(a: any)
+	local list = {} :: {any}
 
-	for _, thing in assets do
-		if typeof(thing) == "string" then
-			if thing ~= "" and not table.find(list, thing) then table.insert(list, thing) end
-		elseif typeof(thing) == "Instance" then
-			if thing:IsA("Decal") then --- things with an image component
-				local id = thing.Texture
-				if id ~= "" and not table.find(list, id) then table.insert(list, id) end
-			elseif thing:IsA("Beam") then
-				local id = thing.Texture
-				if id ~= "" and not table.find(list, id) then table.insert(list, id) end
-			elseif thing:IsA("ImageButton") then
-				local id = thing.Image
-				if id ~= "" and not table.find(list, id) then table.insert(list, id) end
-			elseif thing:IsA("ImageHandleAdornment") then
-				local id = thing.Image
-				if id ~= "" and not table.find(list, id) then table.insert(list, id) end
-			elseif thing:IsA("ImageLabel") then
-				local id = thing.Image
-				if id ~= "" and not table.find(list, id) then table.insert(list, id) end
-			elseif thing:IsA("ParticleEmitter") then
-				local id = thing.Texture
-				if id ~= "" and not table.find(list, id) then table.insert(list, id) end
-			elseif thing:IsA("Pants") then
-				local id = thing.PantsTemplate
-				if id ~= "" and not table.find(list, id) then table.insert(list, id) end
-			elseif thing:IsA("Shirt") then
-				local id = thing.ShirtTemplate
-				if id ~= "" and not table.find(list, id) then table.insert(list, id) end
-			elseif thing:IsA("Sky") then
-				for _, id in {
-					thing.SkyboxBk;
-					thing.SkyboxDn;
-					thing.SkyboxFt;
-					thing.SkyboxLf;
-					thing.SkyboxRt;
-					thing.SkyboxUp;
-				} do
-					if id ~= "" and not table.find(list, id) then table.insert(list, id) end
-				end
-			elseif thing:IsA("Texture") then
-				local id = thing.Texture
-				if id ~= "" and not table.find(list, id) then table.insert(list, id) end
-			elseif thing:IsA("Trail") then
-				local id = thing.Texture
-				if id ~= "" and not table.find(list, id) then table.insert(list, id) end
-			elseif thing:IsA("Animation") then --- things with a non-image component
-				table.insert(list, thing)
-			elseif thing:IsA("CharacterMesh") then
-				table.insert(list, thing)
-			elseif thing:IsA("MeshPart") then
-				table.insert(list, thing)
-			elseif thing:IsA("Sound") then
-				table.insert(list, thing)
-			elseif thing:IsA("SpecialMesh") then
-				--- table.insert(list, thing)
-				local meshid = thing.MeshId
-				local textureid = thing.TextureId
-				if meshid ~= "" and not table.find(list, meshid) then table.insert(list, meshid) end
-				if textureid ~= "" and not table.find(list, textureid) then table.insert(list, textureid) end
-			end
+	if type(a) == "table" then
+		for k, v in a do
+			local r = instanceh.preloadable(v)
+			table.move(r, 1, #r, #list + 1, list)
 		end
+	elseif type(a) == "string" then
+		if string.find(a, "rbxassetid://") then
+			table.insert(list, a)
+		end
+	elseif typeof(a) == "Content" then
+		table.insert(list, a)
+	elseif typeof(a) == "Instance" then
+		if a:IsA("Decal") then --- things with an image component
+			local id = a.Texture
+			if id ~= "" then table.insert(list, id) end
+		elseif a:IsA("Beam") then
+			local id = a.Texture
+			if id ~= "" then table.insert(list, id) end
+		elseif a:IsA("ImageButton") then
+			local id = a.Image
+			if id ~= "" then table.insert(list, id) end
+		elseif a:IsA("ImageHandleAdornment") then
+			local id = a.Image
+			if id ~= "" then table.insert(list, id) end
+		elseif a:IsA("ImageLabel") then
+			local id = a.Image
+			if id ~= "" then table.insert(list, id) end
+		elseif a:IsA("ParticleEmitter") then
+			local id = a.Texture
+			if id ~= "" then table.insert(list, id) end
+		elseif a:IsA("Pants") then
+			local id = a.PantsTemplate
+			if id ~= "" then table.insert(list, id) end
+		elseif a:IsA("Shirt") then
+			local id = a.ShirtTemplate
+			if id ~= "" then table.insert(list, id) end
+		elseif a:IsA("Sky") then
+			for _, id in {
+				a.SkyboxBk;
+				a.SkyboxDn;
+				a.SkyboxFt;
+				a.SkyboxLf;
+				a.SkyboxRt;
+				a.SkyboxUp;
+			} do
+				if id ~= "" then table.insert(list, id) end
+			end
+		elseif a:IsA("Texture") then
+			local id = a.Texture
+			if id ~= "" then table.insert(list, id) end
+		elseif a:IsA("Trail") then
+			local id = a.Texture
+			if id ~= "" then table.insert(list, id) end
+		elseif a:IsA("Animation") then --- as with a non-image component
+			table.insert(list, a)
+		elseif a:IsA("CharacterMesh") then
+			table.insert(list, a)
+		elseif a:IsA("MeshPart") then
+			table.insert(list, a)
+		elseif a:IsA("Sound") then
+			table.insert(list, a)
+		elseif a:IsA("SpecialMesh") then
+			--- table.insert(list, a)
+			local meshid = a.MeshId
+			local textureid = a.TextureId
+			if meshid ~= "" and not table.find(list, meshid) then table.insert(list, meshid) end
+			if textureid ~= "" and not table.find(list, textureid) then table.insert(list, textureid) end
+		end
+
+		local r = instanceh.preloadable(a:QueryDescendants(">Instance"))
+		table.move(r, 1, #r, #list + 1, list)
 	end
 
 	return list

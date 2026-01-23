@@ -53,11 +53,6 @@ local mathh = {
 	random = Random.new();
 }
 
---- returns whether or not `x` is finite
-function mathh.isfinite(x: number)
-	return x == x and x ~= 1/0 and x ~= -1/0
-end
-
 --- returns interpolant with respect to deltatime (`1 - (x ^ dt)`) \
 --- `x` is ideally passed in `e-` notation form (such as `10e-11`)
 function mathh.interpolant(x: number, dt: number)
