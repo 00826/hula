@@ -46,7 +46,15 @@ end
 ---
 --- general type functions
 local types = {
+	--- number abbreviations
 	abbreviations = {"", "K", "M", "B", "T", "Qd", "Qt", "Sx", "Sp", "Oc", "No", "De"};
+	--- shorthand 1-byte instructions used by
+	--- `types.difference()` and `types.reconcile()`
+	instructions = {
+		"\u{0000}";
+		"\u{0001}";
+		"\u{0002}";
+	};
 }
 
 --- creates a wheel \
@@ -265,7 +273,12 @@ end
 function types.deepcopy(t: {[any]: any}): {[any]: any}
 	local copy = {}
 
-	for k, v in t do
+	local iter: any = pairs
+	if #t > 0 then
+		iter = ipairs
+	end
+
+	for k, v in iter(t) do
 		if type(v) == "table" then
 			copy[k] = types.deepcopy(v)
 		elseif type(v) == "buffer" then
@@ -280,326 +293,242 @@ function types.deepcopy(t: {[any]: any}): {[any]: any}
 	return copy
 end
 
+--- returns \
+--- `string indexer type` of `a` \
+--- `string indexer type` of `b` \
+--- `boolean canreconcile` if reconciling `a` and `b` will result in a mixed table
+function types.canreconcile(a: {[any]: any}, b: {[any]: any})
+	local akeytype = type(next(a)::any)
+	local bkeytype = type(next(b)::any)
+	if bkeytype ~= "nil" and akeytype ~= "nil" then
+		if (bkeytype == "number" or akeytype == "number")
+		and (bkeytype ~= akeytype)
+		then
+			return akeytype, bkeytype, false
+		end
+	end
+
+	return akeytype, bkeytype, true
+end
+
 --- returns `c = b ∖ a` \
 --- \
 --- `[!]` because the raw diff between two arrays *cannot* be reconciled normally, certain strings are used as shorthand instructions to be read by `types.union()`: \
---- `"\u{0000}"` indicates a nil value \
---- `"\u{0001}"` indicates no change \
---- `"\u{0002}"` indicates an empty table (`{1, 2, 3} -> {}`) for a shorthand `table.clear()`
-function types.difference(a: {[any]: any}, b: {[any]: any}): any
-	local result = {}
+--- `"\u{0000}"` represents `nil` \
+--- `"\u{0001}"` represents `b ∖ a` where `b = ø` and `a = ø` (no change) \
+--- `"\u{0002}"` represents `b ∖ a` where `b ≠ ø` and `a = ø` (`table.clear()`)
+function types.difference(a: any, b: any): any
+	local atype = type(a)
+	local btype = type(b)
 
-	local oldtabletype = type(next(a)::any)
-	local newtabletype = type(next(b)::any)
-
-	if (oldtabletype ~= newtabletype) --- mixed table
-	and (oldtabletype ~= "nil" or newtabletype ~= "nil") --- non-nil
-	and (oldtabletype == "number" or newtabletype == "number") --- either-or number
-	and (oldtabletype == "string" or newtabletype == "string") --- either-or string
-	then
-		error(string.format(
-			"attempt to diff mixed-key table of types: {[%s]: ...} -> {[%s]: ...}",
-			oldtabletype,
-			newtabletype
-		))
-	end
-
-	if #b > 0 or #a > 0 then
-		--- array diff
-		local oldlen = #a
-		for j, range in ipairs({
-			{oldlen, 1, -1}; --- iter backwards from oldvalue len to 1
-			{oldlen + 1, #b, 1}; --- iter forwards if newvalue is longer than oldvalue
-		}) do
-			for i = range[1], range[2], range[3] do
-				local newvalue = b[i]
-				local newtype = type(newvalue)
-				local oldvalue = a[i]
-				local oldtype = type(oldvalue)
-
-				if newtype == oldtype then
-					if newtype == "table" then
-						local reentry = types.difference(oldvalue, newvalue)
-						result[i] = reentry
-
-					elseif newtype == "buffer" then
-						if compare(newvalue, oldvalue) == true then
-							result[i] = "\u{0001}" --- no change
-						else
-							local copy = buffer.create(buffer.len(newvalue))
-							buffer.copy(copy, 0, newvalue)
-							result[i] = copy
-						end
-					elseif newtype == "nil" then
-						result[i] = "\u{0000}"
-					else
-						if newvalue == oldvalue then
-							result[i] = "\u{0001}" --- no change
-						else
-							result[i] = newvalue
-						end
-					end
-				else
-					if newvalue ~= oldvalue then
-						if newtype == "table" then
-							result[i] = types.deepcopy(newvalue)
-						elseif newtype == "buffer" then
-							local copy = buffer.create(buffer.len(newvalue))
-							buffer.copy(copy, 0, newvalue)
-							result[i] = copy
-						elseif newtype == "nil" then
-							result[i] = "\u{0000}"
-						else
-							result[i] = newvalue
-						end
-					end
-				end
+	if btype == atype then
+		if btype == "table" then
+			--- mixed table assertion
+			local akeytype, bkeytype, canreconcile = types.canreconcile(a, b)
+			if not canreconcile then
+				error(string.format(
+					"cannot resolve difference for non-reconcilable tables: {[%s]: ...} -> {[%s]: ...}",
+					akeytype,
+					bkeytype
+				))
 			end
-		end
-	else
-		--- dictionary diff
-		for newkey, newvalue in b do
-			local newtype = type(newvalue)
-			local oldvalue = a[newkey]
-			local oldtype = type(oldvalue)
 
-			--- print(oldtype, oldvalue, "->", newkey, newtype, newvalue)
-
-			if newtype == oldtype then
-				if newtype == "table" then
-					local reentry = types.difference(oldvalue, newvalue)
-					result[newkey] = reentry
-
-				elseif newtype == "buffer" then
-					if compare(newvalue, oldvalue) == true then
-						--- result[newkey] = "\u{0001}" --- no change
-						continue
-					else
-						local copy = buffer.create(buffer.len(newvalue))
-						buffer.copy(copy, 0, newvalue)
-						result[newkey] = copy
-					end
-				elseif newtype == "nil" then
-					result[newkey] = "\u{0000}"
-				else
-					if newvalue == oldvalue then
-						---- result[newkey] = "\u{0001}" --- no change
-						continue
-					else
-						result[newkey] = newvalue
-					end
-				end
+			if bkeytype == "nil" and akeytype == "nil" then
+				return "\u{0001}"
+			elseif bkeytype == nil and akeytype ~= "nil" then
+				return "\u{0002}"
 			else
-				if newvalue ~= oldvalue then
-					if newtype == "table" then
-						result[newkey] = types.deepcopy(newvalue)
-					elseif newtype == "buffer" then
-						local copy = buffer.create(buffer.len(newvalue))
-						buffer.copy(copy, 0, newvalue)
-						result[newkey] = copy
-					elseif newtype == "nil" then
-						result[newkey] = "\u{0000}"
-					else
-						result[newkey] = newvalue
+				local result = {}
+
+				if #b > 0 or #a > 0 then
+					--- read array diff
+					local alen = #a
+					for j, range in ipairs({
+						{alen, 1, -1}; --- iter backwards from oldvalue len to 1
+						{alen + 1, #b, 1}; --- iter forwards if newvalue is longer than oldvalue
+					}) do
+						for i = range[1], range[2], range[3] do
+							local c = types.difference(a[i], b[i])
+							result[i] = c
+						end
+					end
+				else
+					--- read dictionary diff
+					for bkey, bvalue in b do
+						local c = types.difference(a[bkey], bvalue)
+						result[bkey] = c
+					end
+					for akey in a do
+						if result[akey] == nil then
+							result[akey] = "\u{0000}"
+						end
 					end
 				end
+
+				--- check if result can be collapsed into a byte instruction
+				local len = 0
+				local preconcat = {}
+				for _, v in result do
+					len += 1
+					if table.find(types.instructions, v) then
+						table.insert(preconcat, v)
+					end
+				end
+				local concat = table.concat(preconcat)
+				for _, char in ipairs(types.instructions) do
+					if concat == string.rep(char, len) then
+						return char
+					end
+				end
+
+				return result
+			end
+		elseif btype == "buffer" then
+			if compare(b, a) == true then
+				return "\u{0001}" --- no change
+			else
+				local copy = buffer.create(buffer.len(b))
+				buffer.copy(copy, 0, b)
+
+				return copy
+			end
+
+		elseif btype == "nil" then
+			return "\u{0000}"
+		else
+			if b == a then
+				return "\u{0001}" --- no change
+			else
+				return b
 			end
 		end
-
-		for oldkey in a do
-			if b[oldkey] == nil then
-				result[oldkey] = "\u{0000}"
-			end
-		end
-	end
-
-	--- check if collapsible into single character (table is composed entirely of no-change strings \u{0001} or nil strings \u{0000})
-	--- returns character describing whether the diffs contained in t can be collapsed into
-	--- a table.clear() call ("\u{0002}")
-	--- or a no-change ("\u{0001}")
-	--- or no collapse ("")
-	local cancollapseintotableclear = true
-	local cancollapseintonochange = true
-
-	for _, v in result do
-		if v ~= "\u{0000}" then
-			cancollapseintotableclear = false
-		end
-		if v ~= "\u{0001}" then
-			cancollapseintonochange = false
-		end
-	end
-
-	if cancollapseintotableclear and cancollapseintonochange then
-		return nil
-	end
-	
-	if cancollapseintonochange == true then
-		return "\u{0001}"
-	elseif cancollapseintotableclear == true then
-		return "\u{0002}"
 	else
-		return result
+		if btype == "table" then
+			return types.deepcopy(b)
+		elseif btype == "buffer" then
+			local copy = buffer.create(buffer.len(b))
+			buffer.copy(copy, 0, b)
+			
+			return copy
+		elseif btype == "nil" then
+			return "\u{0000}"
+		else
+			return b
+		end
 	end
 end
 
---- where `c = a ∖ b`, applies union operation `b ∪ c`, such that `a ∖ b == ø`
-function types.reconcile(b: {[any]: any}, c: {[any]: any}|string): any
-	if type(c) == "table" then
-		local oldtabletype = type(next(b)::any)
-		local difftabletype = type(next(c)::any)
+--- where `c = a ∖ b`, applies union operation `b ∪ c`, such that `a ∖ b == ø` \
+--- returns: \
+--- `any b` reconciled \
+--- `number count` # of differences reconciled
+function types.reconcile(b: any, c: any): (any, number)
+	local btype = type(b)
+	local ctype = type(c)
 
-		if (oldtabletype ~= difftabletype) --- mixed table
-		and (oldtabletype ~= "nil" or difftabletype ~= "nil") --- non-nil
-		and (oldtabletype == "number" or difftabletype == "number") --- either-or number
-		and (oldtabletype == "string" or difftabletype == "string") --- either-or string
-		then
-			print(b, c)
-			error(string.format(
-				"attempt to reconcile mixed-key table of types: {[%s]: ...} -> {[%s]: ...}",
-				oldtabletype,
-				difftabletype
-			))
-		end
-
-		if #b > 0 or #c > 0 then
-			--- reconcile array
-			local oldlen = #b
-			for j, range in ipairs({
-				{oldlen, 1, -1}; --- iter backwards from oldvalue len to 1
-				{oldlen + 1, #c, 1}; --- iter forwards if newvalue is longer than oldvalue
-			}) do
-				for i = range[1], range[2], range[3] do
-					local diffvalue = c[i]
-					local difftype = type(diffvalue)
-					local oldvalue = b[i]
-					local oldtype = type(oldvalue)
-
-					--- special string cases
-					if difftype == "string" then
-						if diffvalue == "\u{0000}" then
-							b[i] = nil
-
-							continue
-						elseif diffvalue == "\u{0001}" then
-							--- no change
-
-							continue
-						elseif diffvalue == "\u{0002}" then
-							if oldtype == "table" then
-								table.clear(oldvalue)
-							else
-								b[i] = {} --- maybe for safety?
-							end
-
-							continue
-						end
-					end
-
-					--- reconcile
-					if difftype == oldtype then
-						if difftype == "table" then
-							b[i] = types.reconcile(oldvalue, diffvalue)
-						elseif difftype == "buffer" then
-							--- save new buffer alloc if lengths are the same
-							if buffer.len(oldvalue) == buffer.len(diffvalue) then
-								buffer.copy(oldvalue, 0, diffvalue)
-							else
-								local copy = buffer.create(buffer.len(diffvalue))
-								buffer.copy(copy, 0, diffvalue)
-								b[i] = copy
-							end
-						elseif difftype == "nil" then
-							b[i] = nil
-						else
-							if diffvalue == oldvalue then
-								continue
-							else
-								b[i] = diffvalue
-							end
-						end
-					else
-						if difftype == "nil" then
-							b[i] = nil
-						else
-							b[i] = diffvalue
-						end
-					end
-				end
-			end
+	--- byte instructions
+	if c == "\u{0000}" then
+		--- nil
+		if b ~= nil then
+			return nil, 1
 		else
-			--- reconcile dictionary
-			for diffkey, diffvalue in c do
-				local difftype = type(diffvalue)
-				local oldvalue = b[diffkey]
-				local oldtype = type(oldvalue)
-
-				--- special string cases
-				if difftype == "string" then
-					if diffvalue == "\u{0000}" then
-						b[diffkey] = nil
-
-						continue
-					elseif diffvalue == "\u{0001}" then
-						--- no change
-
-						continue
-					elseif diffvalue == "\u{0002}" then
-						if oldtype == "table" then
-							table.clear(oldvalue)
-						else
-							b[diffkey] = {} --- maybe for safety?
-						end
-
-						continue
-					end
-				end
-
-				--- reconcile
-				if difftype == oldtype then
-					if difftype == "table" then
-						b[diffkey] = types.reconcile(oldvalue, diffvalue)
-					elseif difftype == "buffer" then
-						--- save new buffer alloc if lengths are the same
-						if buffer.len(oldvalue) == buffer.len(diffvalue) then
-							buffer.copy(oldvalue, 0, diffvalue)
-						else
-							local copy = buffer.create(buffer.len(diffvalue))
-							buffer.copy(copy, 0, diffvalue)
-							b[diffkey] = copy
-						end
-					elseif difftype == "nil" then
-						b[diffkey] = nil
-					else
-						if diffvalue == oldvalue then
-							continue
-						else
-							b[diffkey] = diffvalue
-						end
-					end
-				else
-					if difftype == "nil" then
-						b[diffkey] = nil
-					else
-						b[diffkey] = diffvalue
-					end
-				end
+			return nil, 0
+		end
+	elseif c == "\u{0001}" then
+		--- no change
+		return b, 0
+	elseif c == "\u{0002}" then
+		--- table.clear()
+		if btype == "table" then
+			if next(b) ~= nil then
+				table.clear(b)
+				
+				return b, 1
+			else
+				return b, 0 --- is already empty
 			end
 		end
-	elseif type(c) == "string" then
-		if c == "\u{0000}" then
-			--- t should be nil, shouldn't ever arrive at this case
-			return nil
-		elseif c == "\u{0001}" then
-			--- no change
-			return b
-		elseif c == "\u{0002}" then
-			table.clear(b)
-			return b
-		end
+
+		return b, 0 --- ? basically this means reconcile(nil, {})
 	end
 
-	return b
+	if ctype == btype then
+		if ctype == "table" then
+			--- mixed table assertion
+			local bkeytype, ckeytype, canreconcile = types.canreconcile(b, c)
+			if not canreconcile then
+				error(string.format(
+					"cannot apply reconcile to non-reconcilable tables: {[%s]: ...} <- {[%s]: ...}",
+					bkeytype,
+					ckeytype
+				))
+			end
+
+			local count = 0
+
+			if #c > 0 or #b > 0 then
+				--- reconcile array
+				local blen = #b
+				for j, range in ipairs({
+					{blen, 1, -1}; --- iter backwards from oldvalue len to 1
+					{blen + 1, #c, 1}; --- iter forwards if newvalue is longer than oldvalue
+				}) do
+					for i = range[1], range[2], range[3] do
+						local reentryvalue, reentrycount = types.reconcile(b[i], c[i])
+						b[i] = reentryvalue
+						count += reentrycount
+					end
+				end
+			else
+				--- reconcile dictionary
+				for ckey, cvalue in c do
+					local rentryvalue, reentrycount = types.reconcile(b[ckey], cvalue)
+					b[ckey] = rentryvalue
+					count += reentrycount
+				end
+				for bkey in b do
+					if c[bkey] == "\u{0000}" then
+						b[bkey] = nil
+					end
+				end
+			end
+			
+			return b, count
+		elseif ctype == "buffer" then
+			if compare(b, c) == true then
+				return b, 0
+			else
+				if buffer.len(b) == buffer.len(c) then
+					buffer.copy(b, 0, c)
+					return b, 1
+				else
+					return c, 1
+				end
+			end
+			
+		elseif ctype == "nil" then
+			return nil, 0
+		else
+			if b == c then
+				return b, 0
+			else
+				return c, 1
+			end
+		end
+	else
+		if ctype == "table" then
+			return c, 1
+		elseif ctype == "buffer" then
+			local copy = buffer.create(buffer.len(c))
+			buffer.copy(copy, 0, c)
+			
+			return copy, 1
+		elseif ctype == "nil" then
+			return nil, 1
+		else
+			return c, 1
+		end
+	end
 end
 
 --- returns an item (`{id, ...}`)
