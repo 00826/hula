@@ -48,8 +48,7 @@ end
 local types = {
 	--- number abbreviations
 	abbreviations = {"", "K", "M", "B", "T", "Qd", "Qt", "Sx", "Sp", "Oc", "No", "De"};
-	--- shorthand 1-byte instructions used by
-	--- `types.difference()` and `types.reconcile()`
+	--- shorthand 1-byte instructions used by `types.difference()` and `types.reconcile()`
 	instructions = {
 		"\u{0000}";
 		"\u{0001}";
@@ -313,7 +312,7 @@ end
 
 --- returns `c = b ∖ a` \
 --- \
---- `[!]` because the raw diff between two arrays *cannot* be reconciled normally, certain strings are used as shorthand instructions to be read by `types.union()`: \
+--- `[!]` because the raw diff between two arrays *cannot* be reconciled normally, certain strings are used as shorthand instructions to be read by `types.reconcile()`: \
 --- `"\u{0000}"` represents `nil` \
 --- `"\u{0001}"` represents `b ∖ a` where `b = ø` and `a = ø` (no change) \
 --- `"\u{0002}"` represents `b ∖ a` where `b ≠ ø` and `a = ø` (`table.clear()`)
@@ -323,7 +322,6 @@ function types.difference(a: any, b: any): any
 
 	if btype == atype then
 		if btype == "table" then
-			--- mixed table assertion
 			local akeytype, bkeytype, canreconcile = types.canreconcile(a, b)
 			if not canreconcile then
 				error(string.format(
@@ -385,7 +383,7 @@ function types.difference(a: any, b: any): any
 			end
 		elseif btype == "buffer" then
 			if compare(b, a) == true then
-				return "\u{0001}" --- no change
+				return "\u{0001}"
 			else
 				local copy = buffer.create(buffer.len(b))
 				buffer.copy(copy, 0, b)
@@ -397,7 +395,7 @@ function types.difference(a: any, b: any): any
 			return "\u{0000}"
 		else
 			if b == a then
-				return "\u{0001}" --- no change
+				return "\u{0001}"
 			else
 				return b
 			end
@@ -428,17 +426,10 @@ function types.reconcile(b: any, c: any): (any, number)
 
 	--- byte instructions
 	if c == "\u{0000}" then
-		--- nil
-		if b ~= nil then
-			return nil, 1
-		else
-			return nil, 0
-		end
+		return nil, b ~= nil and 1 or 0
 	elseif c == "\u{0001}" then
-		--- no change
 		return b, 0
 	elseif c == "\u{0002}" then
-		--- table.clear()
 		if btype == "table" then
 			if next(b) ~= nil then
 				table.clear(b)
@@ -449,12 +440,11 @@ function types.reconcile(b: any, c: any): (any, number)
 			end
 		end
 
-		return b, 0 --- ? basically this means reconcile(nil, {})
+		return b, 0 --- ? shouldn't arrive at this case
 	end
 
 	if ctype == btype then
 		if ctype == "table" then
-			--- mixed table assertion
 			local bkeytype, ckeytype, canreconcile = types.canreconcile(b, c)
 			if not canreconcile then
 				error(string.format(
@@ -482,8 +472,8 @@ function types.reconcile(b: any, c: any): (any, number)
 			else
 				--- reconcile dictionary
 				for ckey, cvalue in c do
-					local rentryvalue, reentrycount = types.reconcile(b[ckey], cvalue)
-					b[ckey] = rentryvalue
+					local reentryvalue, reentrycount = types.reconcile(b[ckey], cvalue)
+					b[ckey] = reentryvalue
 					count += reentrycount
 				end
 				for bkey in b do
@@ -509,11 +499,7 @@ function types.reconcile(b: any, c: any): (any, number)
 		elseif ctype == "nil" then
 			return nil, 0
 		else
-			if b == c then
-				return b, 0
-			else
-				return c, 1
-			end
+			return c, b ~= c and 1 or 0
 		end
 	else
 		if ctype == "table" then
