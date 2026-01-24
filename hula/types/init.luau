@@ -280,17 +280,17 @@ function types.deepcopy(t: {[any]: any}): {[any]: any}
 	return copy
 end
 
---- returns a data type (`string|table`) describing `new - old` \
---- some string values may cause the return type to not be accurate. \
---- this is because the raw diff between two arrays *cannot* be reconciled normally. \
---- `[!]` `"\u{0000}"` indicates a nil value \
---- `[!]` `"\u{0001}"` indicates no change \
---- `[!]` `"\u{0002}"` indicates an empty table (`{1, 2, 3} -> {}`) for a shorthand `table.clear()`
-function types.difference(old: {[any]: any}, new: {[any]: any}): any
+--- returns `c = b ∖ a` \
+--- \
+--- `[!]` because the raw diff between two arrays *cannot* be reconciled normally, certain strings are used as shorthand instructions to be read by `types.union()`: \
+--- `"\u{0000}"` indicates a nil value \
+--- `"\u{0001}"` indicates no change \
+--- `"\u{0002}"` indicates an empty table (`{1, 2, 3} -> {}`) for a shorthand `table.clear()`
+function types.difference(a: {[any]: any}, b: {[any]: any}): any
 	local result = {}
 
-	local oldtabletype = type(next(old)::any)
-	local newtabletype = type(next(new)::any)
+	local oldtabletype = type(next(a)::any)
+	local newtabletype = type(next(b)::any)
 
 	if (oldtabletype ~= newtabletype) --- mixed table
 	and (oldtabletype ~= "nil" or newtabletype ~= "nil") --- non-nil
@@ -304,17 +304,17 @@ function types.difference(old: {[any]: any}, new: {[any]: any}): any
 		))
 	end
 
-	if #new > 0 and #old > 0 then
+	if #b > 0 or #a > 0 then
 		--- array diff
-		local oldlen = #old
+		local oldlen = #a
 		for j, range in ipairs({
 			{oldlen, 1, -1}; --- iter backwards from oldvalue len to 1
-			{oldlen + 1, #new, 1}; --- iter forwards if newvalue is longer than oldvalue
+			{oldlen + 1, #b, 1}; --- iter forwards if newvalue is longer than oldvalue
 		}) do
 			for i = range[1], range[2], range[3] do
-				local newvalue = new[i]
+				local newvalue = b[i]
 				local newtype = type(newvalue)
-				local oldvalue = old[i]
+				local oldvalue = a[i]
 				local oldtype = type(oldvalue)
 
 				if newtype == oldtype then
@@ -326,10 +326,9 @@ function types.difference(old: {[any]: any}, new: {[any]: any}): any
 						if compare(newvalue, oldvalue) == true then
 							result[i] = "\u{0001}" --- no change
 						else
-							local b = buffer.create(buffer.len(newvalue))
-							buffer.copy(b, 0, newvalue)
-
-							result[i] = b
+							local copy = buffer.create(buffer.len(newvalue))
+							buffer.copy(copy, 0, newvalue)
+							result[i] = copy
 						end
 					elseif newtype == "nil" then
 						result[i] = "\u{0000}"
@@ -345,10 +344,9 @@ function types.difference(old: {[any]: any}, new: {[any]: any}): any
 						if newtype == "table" then
 							result[i] = types.deepcopy(newvalue)
 						elseif newtype == "buffer" then
-							local b = buffer.create(buffer.len(newvalue))
-							buffer.copy(b, 0, newvalue)
-
-							result[i] = b
+							local copy = buffer.create(buffer.len(newvalue))
+							buffer.copy(copy, 0, newvalue)
+							result[i] = copy
 						elseif newtype == "nil" then
 							result[i] = "\u{0000}"
 						else
@@ -360,9 +358,9 @@ function types.difference(old: {[any]: any}, new: {[any]: any}): any
 		end
 	else
 		--- dictionary diff
-		for newkey, newvalue in new do
+		for newkey, newvalue in b do
 			local newtype = type(newvalue)
-			local oldvalue = old[newkey]
+			local oldvalue = a[newkey]
 			local oldtype = type(oldvalue)
 
 			--- print(oldtype, oldvalue, "->", newkey, newtype, newvalue)
@@ -377,10 +375,9 @@ function types.difference(old: {[any]: any}, new: {[any]: any}): any
 						--- result[newkey] = "\u{0001}" --- no change
 						continue
 					else
-						local b = buffer.create(buffer.len(newvalue))
-						buffer.copy(b, 0, newvalue)
-
-						result[newkey] = b
+						local copy = buffer.create(buffer.len(newvalue))
+						buffer.copy(copy, 0, newvalue)
+						result[newkey] = copy
 					end
 				elseif newtype == "nil" then
 					result[newkey] = "\u{0000}"
@@ -397,10 +394,9 @@ function types.difference(old: {[any]: any}, new: {[any]: any}): any
 					if newtype == "table" then
 						result[newkey] = types.deepcopy(newvalue)
 					elseif newtype == "buffer" then
-						local b = buffer.create(buffer.len(newvalue))
-						buffer.copy(b, 0, newvalue)
-
-						result[newkey] = b
+						local copy = buffer.create(buffer.len(newvalue))
+						buffer.copy(copy, 0, newvalue)
+						result[newkey] = copy
 					elseif newtype == "nil" then
 						result[newkey] = "\u{0000}"
 					else
@@ -410,8 +406,8 @@ function types.difference(old: {[any]: any}, new: {[any]: any}): any
 			end
 		end
 
-		for oldkey in old do
-			if new[oldkey] == nil then
+		for oldkey in a do
+			if b[oldkey] == nil then
 				result[oldkey] = "\u{0000}"
 			end
 		end
@@ -447,27 +443,18 @@ function types.difference(old: {[any]: any}, new: {[any]: any}): any
 	end
 end
 
---- reconcildes `diff` to `t` such that: \
---- ```lua
---- local b = { ... }
---- local a = { ... }
---- local diff = types.difference(b, a)
---- 
---- local t = { ... } --- where `t == b`
---- types.reconcile(t, diff)
---- types.difference(t, a) --- -> "%1" (no change)
---- ```
-function types.reconcile(t: {[any]: any}, diff: {[any]: any}|string): any
-	if type(diff) == "table" then
-		local oldtabletype = type(next(t)::any)
-		local difftabletype = type(next(diff)::any)
+--- where `c = a ∖ b`, applies union operation `b ∪ c`, such that `a ∖ b == ø`
+function types.reconcile(b: {[any]: any}, c: {[any]: any}|string): any
+	if type(c) == "table" then
+		local oldtabletype = type(next(b)::any)
+		local difftabletype = type(next(c)::any)
 
 		if (oldtabletype ~= difftabletype) --- mixed table
 		and (oldtabletype ~= "nil" or difftabletype ~= "nil") --- non-nil
 		and (oldtabletype == "number" or difftabletype == "number") --- either-or number
 		and (oldtabletype == "string" or difftabletype == "string") --- either-or string
 		then
-			print(t, diff)
+			print(b, c)
 			error(string.format(
 				"attempt to reconcile mixed-key table of types: {[%s]: ...} -> {[%s]: ...}",
 				oldtabletype,
@@ -475,23 +462,23 @@ function types.reconcile(t: {[any]: any}, diff: {[any]: any}|string): any
 			))
 		end
 
-		if #t > 0 and #diff > 0 then
+		if #b > 0 or #c > 0 then
 			--- reconcile array
-			local oldlen = #t
+			local oldlen = #b
 			for j, range in ipairs({
 				{oldlen, 1, -1}; --- iter backwards from oldvalue len to 1
-				{oldlen + 1, #diff, 1}; --- iter forwards if newvalue is longer than oldvalue
+				{oldlen + 1, #c, 1}; --- iter forwards if newvalue is longer than oldvalue
 			}) do
 				for i = range[1], range[2], range[3] do
-					local diffvalue = diff[i]
+					local diffvalue = c[i]
 					local difftype = type(diffvalue)
-					local oldvalue = t[i]
+					local oldvalue = b[i]
 					local oldtype = type(oldvalue)
 
 					--- special string cases
 					if difftype == "string" then
 						if diffvalue == "\u{0000}" then
-							t[i] = nil
+							b[i] = nil
 
 							continue
 						elseif diffvalue == "\u{0001}" then
@@ -502,7 +489,7 @@ function types.reconcile(t: {[any]: any}, diff: {[any]: any}|string): any
 							if oldtype == "table" then
 								table.clear(oldvalue)
 							else
-								t[i] = {} --- maybe for safety?
+								b[i] = {} --- maybe for safety?
 							end
 
 							continue
@@ -512,44 +499,45 @@ function types.reconcile(t: {[any]: any}, diff: {[any]: any}|string): any
 					--- reconcile
 					if difftype == oldtype then
 						if difftype == "table" then
-							t[i] = types.reconcile(oldvalue, diffvalue)
+							b[i] = types.reconcile(oldvalue, diffvalue)
 						elseif difftype == "buffer" then
 							--- save new buffer alloc if lengths are the same
 							if buffer.len(oldvalue) == buffer.len(diffvalue) then
 								buffer.copy(oldvalue, 0, diffvalue)
 							else
-								local b = buffer.create(buffer.len(diffvalue))
-								buffer.copy(b, 0, diffvalue)
+								local copy = buffer.create(buffer.len(diffvalue))
+								buffer.copy(copy, 0, diffvalue)
+								b[i] = copy
 							end
 						elseif difftype == "nil" then
-							t[i] = nil
+							b[i] = nil
 						else
 							if diffvalue == oldvalue then
 								continue
 							else
-								t[i] = diffvalue
+								b[i] = diffvalue
 							end
 						end
 					else
 						if difftype == "nil" then
-							t[i] = nil
+							b[i] = nil
 						else
-							t[i] = diffvalue
+							b[i] = diffvalue
 						end
 					end
 				end
 			end
 		else
 			--- reconcile dictionary
-			for diffkey, diffvalue in diff do
+			for diffkey, diffvalue in c do
 				local difftype = type(diffvalue)
-				local oldvalue = t[diffkey]
+				local oldvalue = b[diffkey]
 				local oldtype = type(oldvalue)
 
 				--- special string cases
 				if difftype == "string" then
 					if diffvalue == "\u{0000}" then
-						t[diffkey] = nil
+						b[diffkey] = nil
 
 						continue
 					elseif diffvalue == "\u{0001}" then
@@ -560,7 +548,7 @@ function types.reconcile(t: {[any]: any}, diff: {[any]: any}|string): any
 						if oldtype == "table" then
 							table.clear(oldvalue)
 						else
-							t[diffkey] = {} --- maybe for safety?
+							b[diffkey] = {} --- maybe for safety?
 						end
 
 						continue
@@ -570,47 +558,48 @@ function types.reconcile(t: {[any]: any}, diff: {[any]: any}|string): any
 				--- reconcile
 				if difftype == oldtype then
 					if difftype == "table" then
-						t[diffkey] = types.reconcile(oldvalue, diffvalue)
+						b[diffkey] = types.reconcile(oldvalue, diffvalue)
 					elseif difftype == "buffer" then
 						--- save new buffer alloc if lengths are the same
 						if buffer.len(oldvalue) == buffer.len(diffvalue) then
 							buffer.copy(oldvalue, 0, diffvalue)
 						else
-							local b = buffer.create(buffer.len(diffvalue))
-							buffer.copy(b, 0, diffvalue)
+							local copy = buffer.create(buffer.len(diffvalue))
+							buffer.copy(copy, 0, diffvalue)
+							b[diffkey] = copy
 						end
 					elseif difftype == "nil" then
-						t[diffkey] = nil
+						b[diffkey] = nil
 					else
 						if diffvalue == oldvalue then
 							continue
 						else
-							t[diffkey] = diffvalue
+							b[diffkey] = diffvalue
 						end
 					end
 				else
 					if difftype == "nil" then
-						t[diffkey] = nil
+						b[diffkey] = nil
 					else
-						t[diffkey] = diffvalue
+						b[diffkey] = diffvalue
 					end
 				end
 			end
 		end
-	elseif type(diff) == "string" then
-		if diff == "\u{0000}" then
+	elseif type(c) == "string" then
+		if c == "\u{0000}" then
 			--- t should be nil, shouldn't ever arrive at this case
 			return nil
-		elseif diff == "\u{0001}" then
+		elseif c == "\u{0001}" then
 			--- no change
-			return t
-		elseif diff == "\u{0002}" then
-			table.clear(t)
-			return t
+			return b
+		elseif c == "\u{0002}" then
+			table.clear(b)
+			return b
 		end
 	end
 
-	return t
+	return b
 end
 
 --- returns an item (`{id, ...}`)
