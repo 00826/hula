@@ -4,15 +4,12 @@
 local HttpService = game:GetService("HttpService")
 local RunService = game:GetService("RunService")
 
-local Rand = Random.new()
+local random = Random.new()
 
 --- returns `a == b`
-local function compare(a: buffer, b: buffer, offset: number?)
+local function buffereq(a: buffer, b: buffer, offset: number)
 	local alen = buffer.len(a)
 	local blen = buffer.len(b)
-
-	offset = offset or 0
-	assert(offset) --- solver kick rocks
 
 	if alen ~= blen then
 		return false
@@ -20,24 +17,14 @@ local function compare(a: buffer, b: buffer, offset: number?)
 		return true
 	else
 		local traverse = alen - offset
-		if traverse >= 4 then
-			if buffer.readu32(a, offset) == buffer.readu32(b, offset) then
-				return compare(a, b, offset + 4)
-			else
-				return false
-			end
-		elseif traverse >= 2 then
-			if buffer.readu16(a, offset) == buffer.readu16(b, offset) then
-				return compare(a, b, offset + 2)
-			else
-				return false
-			end
+		local clamped = math.clamp(traverse, 0, 4) --- limit comparison range to 4 bytes (u32)
+		
+		local bitoffset = offset * 8
+		local bitcount = clamped * 8
+		if buffer.readbits(a, bitoffset, bitcount) == buffer.readbits(b, bitoffset, bitcount) then
+			return buffereq(a, b, offset + clamped)
 		else
-			if buffer.readu8(a, offset) == buffer.readu8(b, offset) then
-				return compare(a, b, offset + 1)
-			else
-				return false
-			end
+			return false
 		end
 	end
 end
@@ -382,7 +369,7 @@ function types.difference(a: any, b: any): any
 				return result
 			end
 		elseif btype == "buffer" then
-			if compare(b, a) == true then
+			if buffereq(b, a, 0) == true then
 				return "\u{0001}"
 			else
 				local copy = buffer.create(buffer.len(b))
@@ -438,13 +425,17 @@ function types.reconcile(b: any, c: any): (any, number)
 
 	--- byte instructions
 	if c == "\u{0000}" then
+		if btype == "table" then
+			types.rbxtypeclear(b)
+		end
 		return nil, b ~= nil and 1 or 0
 	elseif c == "\u{0001}" then
 		return b, 0
 	elseif c == "\u{0002}" then
 		if btype == "table" then
 			if next(b) ~= nil then
-				table.clear(b)
+				types.rbxtypeclear(b)
+				--- table.clear(b)
 				
 				return b, 1
 			else
@@ -490,6 +481,9 @@ function types.reconcile(b: any, c: any): (any, number)
 				end
 				for bkey in b do
 					if c[bkey] == "\u{0000}" then
+						if type(b[bkey]) == "table" then
+							types.rbxtypeclear(b[bkey])
+						end
 						b[bkey] = nil
 					end
 				end
@@ -497,7 +491,7 @@ function types.reconcile(b: any, c: any): (any, number)
 			
 			return b, count
 		elseif ctype == "buffer" then
-			if compare(b, c) == true then
+			if buffereq(b, c, 0) == true then
 				return b, 0
 			else
 				if buffer.len(b) == buffer.len(c) then
@@ -507,7 +501,6 @@ function types.reconcile(b: any, c: any): (any, number)
 					return c, 1
 				end
 			end
-			
 		elseif ctype == "nil" then
 			return nil, 0
 		else
@@ -683,7 +676,7 @@ function types.nextvaluefromlist<T>(t: {T}, R: Random?): T?
 	if #t < 0 then
 		return nil
 	else
-		return t[(R or Rand):NextInteger(1, #t)]
+		return t[(R or random):NextInteger(1, #t)]
 	end
 end
 
@@ -697,7 +690,7 @@ function types.nextvaluefromweightedtable<T>(t: { { key: string, weight: number 
 			sum += entry.weight
 		end
 
-		local roll, passed = (R or Rand):NextNumber(0, sum), 0
+		local roll, passed = (R or random):NextNumber(0, sum), 0
 		for _, entry in ipairs(t) do
 			passed += entry.weight
 
@@ -780,7 +773,7 @@ end
 function types.createstring(len: number)
 	local b = buffer.create(len)
 	for i = 0, len - 1, 1 do
-		local value = Rand:NextInteger(1, 62)
+		local value = random:NextInteger(1, 62)
 		if value <= 26 then --- [a-z] [abcdefghijklmnopqrstuvwxyz] [1-26] -> [97-122] 
 			buffer.writeu8(b, i, value + 96)
 		elseif value <= 52 then --- [A-Z] [ABCDEFGHIJKLMNOPQRSTUVWXYZ] [27-52] -> [65-90] 

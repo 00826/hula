@@ -1,7 +1,7 @@
 --!strict
 --!native
 
-local Rand = Random.new()
+local random = Random.new()
 
 --- ### vector3h.luau
 ---
@@ -110,7 +110,7 @@ end
 
 --- returns random unit vector
 function vector3h.nextunitvector(R: Random?)
-	return (R or Rand):NextUnitVector()
+	return (R or random):NextUnitVector()
 end
 
 --- returns random unit vector within bounds of cone \
@@ -128,9 +128,9 @@ function vector3h.nextunitspread(v: Vector3, radians: number, R: Random?)
 
 	--- generate a random point within the spherical cap (from unit sphere)
 	--- produces spherical coordinates
-	local cos = (R or Rand):NextNumber(math.cos(radians), 1)
+	local cos = (R or random):NextNumber(math.cos(radians), 1)
 	local sin = (1 - cos * cos)^0.5
-	local phi = (R or Rand):NextNumber(0, 2*math.pi)
+	local phi = (R or random):NextNumber(0, 2*math.pi)
 
 	local x = sin * math.cos(phi)
 	local y = sin * math.sin(phi)
@@ -143,22 +143,22 @@ end
 --- returns random point within bounds of `[v, w]`
 function vector3h.nextpointinbounds(v: Vector3, w: Vector3, R: Random?)
 	return
-		  (Vector3.xAxis * (R or Rand):NextNumber(v.X, w.X))
-		+ (Vector3.yAxis * (R or Rand):NextNumber(v.Y, w.Y))
-		+ (Vector3.zAxis * (R or Rand):NextNumber(v.Z, w.Z))
+		  (Vector3.xAxis * (R or random):NextNumber(v.X, w.X))
+		+ (Vector3.yAxis * (R or random):NextNumber(v.Y, w.Y))
+		+ (Vector3.zAxis * (R or random):NextNumber(v.Z, w.Z))
 end
 
 --- returns random point *in* `x,z` radius
 function vector3h.nextpointinradius(radius: number, R: Random?)
-	local r = radius * ((R or Rand):NextNumber()^0.5)
-	local theta = (R or Rand):NextNumber() * 2 * math.pi
+	local r = radius * ((R or random):NextNumber()^0.5)
+	local theta = (R or random):NextNumber() * 2 * math.pi
 
 	return (Vector3.xAxis * r * math.cos(theta)) + (Vector3.zAxis * r * math.sin(theta))
 end
 
 --- returns random point *on* `x,z` radius
 function vector3h.nextpointonradius(radius: number, R: Random?)
-	local theta = (R or Rand):NextNumber() * 2 * math.pi
+	local theta = (R or random):NextNumber() * 2 * math.pi
 	
 	return Vector3.new(radius * math.cos(theta), 0, radius * math.sin(theta))
 end

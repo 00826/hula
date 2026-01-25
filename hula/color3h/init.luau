@@ -1,6 +1,6 @@
 --!strict
 
-local Rand = Random.new()
+local random = Random.new()
 
 --- ### color3.luau
 ---
@@ -349,9 +349,9 @@ end
 --- returns `Color3.new(random[0, 1], random[0, 1], random[0, 1])`
 function color3h.nextcolor(R: Random?)
 	return Color3.new(
-		(R or Rand):NextNumber(),
-		(R or Rand):NextNumber(),
-		(R or Rand):NextNumber()
+		(R or random):NextNumber(),
+		(R or random):NextNumber(),
+		(R or random):NextNumber()
 	)
 end
 

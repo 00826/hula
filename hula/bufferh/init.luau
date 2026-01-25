@@ -172,12 +172,9 @@ end
 
 --- returns `a == b` \
 --- `offset (?=0)` begin comparison at offset
-function bufferh.eq(a: buffer, b: buffer, offset: number?)
+function bufferh.eq(a: buffer, b: buffer, offset: number)
 	local alen = buffer.len(a)
 	local blen = buffer.len(b)
-
-	offset = offset or 0
-	assert(offset) --- solver kick rocks
 
 	if alen ~= blen then
 		return false
@@ -185,24 +182,14 @@ function bufferh.eq(a: buffer, b: buffer, offset: number?)
 		return true
 	else
 		local traverse = alen - offset
-		if traverse >= 4 then
-			if buffer.readu32(a, offset) == buffer.readu32(b, offset) then
-				return bufferh.eq(a, b, offset + 4)
-			else
-				return false
-			end
-		elseif traverse >= 2 then
-			if buffer.readu16(a, offset) == buffer.readu16(b, offset) then
-				return bufferh.eq(a, b, offset + 2)
-			else
-				return false
-			end
+		local clamped = math.clamp(traverse, 0, 4) --- limit comparison range to 4 bytes (u32)
+		
+		local bitoffset = offset * 8
+		local bitcount = clamped * 8
+		if buffer.readbits(a, bitoffset, bitcount) == buffer.readbits(b, bitoffset, bitcount) then
+			return bufferh.eq(a, b, offset + clamped)
 		else
-			if buffer.readu8(a, offset) == buffer.readu8(b, offset) then
-				return bufferh.eq(a, b, offset + 1)
-			else
-				return false
-			end
+			return false
 		end
 	end
 end
