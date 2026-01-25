@@ -333,7 +333,7 @@ function types.difference(a: any, b: any): any
 
 			if bkeytype == "nil" and akeytype == "nil" then
 				return "\u{0001}"
-			elseif bkeytype == nil and akeytype ~= "nil" then
+			elseif bkeytype == "nil" and akeytype ~= "nil" then
 				return "\u{0002}"
 			else
 				local result = {}
@@ -357,7 +357,7 @@ function types.difference(a: any, b: any): any
 						result[bkey] = c
 					end
 					for akey in a do
-						if result[akey] == nil then
+						if b[akey] == nil then
 							result[akey] = "\u{0000}"
 						end
 					end
@@ -390,7 +390,6 @@ function types.difference(a: any, b: any): any
 
 				return copy
 			end
-
 		elseif btype == "nil" then
 			return "\u{0000}"
 		else
@@ -412,6 +411,19 @@ function types.difference(a: any, b: any): any
 			return "\u{0000}"
 		else
 			return b
+		end
+	end
+end
+
+--- collapses difference table such that key-value pairs with non-numeric indexers with a "no-change" (`\u{0001}`) control character value are set to nil
+function types.collapse(difference: {[any]: any})
+	for k, v in difference do
+		if type(v) == "table" then
+			types.collapse(v)
+		else
+			if type(k) ~= "number" and v == "\u{0001}" then
+				difference[k] = nil
+			end
 		end
 	end
 end
