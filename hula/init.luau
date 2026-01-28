@@ -13,6 +13,7 @@ return table.freeze{
 	mathh = require(script.mathh);
 	net = require(script.net);
 	patronage = require(script.patronage);
-	types = require(script.types);
+	stringh = require(script.stringh);
+	tableh = require(script.tableh);
 	vector3h = require(script.vector3h);
 }

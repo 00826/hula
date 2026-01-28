@@ -24,9 +24,10 @@ a table of roblox-luau convenience modules
 |[inputs.luau](./hula/inputs/init.luau)|`UserInputService`, `GamepadService` wrapper|
 |[instanceh.luau](./hula/instanceh/init.luau)|`Instance` library extension|
 |[mathh.luau](./hula/mathh/init.luau)|`math`, `NumberRange`, `NumberSequence` library extension|
-|[net.luau](./hula/net/init.luau)|`client<->server` & `vm₁<->vm₁` networking, server-authoritative `DateTime.now().UnixTimestampMillis`|
+|[net.luau](./hula/net/init.luau)|`client<->server` & `vm₁<->vm₁` networking, server-authoritative `DateTime.now().UnixTimestampMillis`, and miscellaneous time functions|
 |[patronage.luau](./hula/patronage/init.luau)|player patronage (devproducts, gamepasses, premium, group membership, etc)|
-|[types.luau](./hula/types/init.luau)|general type functions|
+|[stringh.luau](./hula/types/stringh.luau)|`string` library extension|
+|[tableh.luau](./hula/types/tableh.luau)|`table` library extension|
 |[vector3h.luau](./hula/vector3h/init.luau)|`Vector3` library extension|
 
 ## design language

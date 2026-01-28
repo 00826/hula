@@ -388,4 +388,39 @@ function vector3h.projectile(velocity: Vector3, time: number, gravity: number?):
 	return (vector.normalize(velocity::any)::any * (vector.magnitude(velocity::any) * time)) - ((0.5 * Vector3.yAxis) * (gravity or 196) * (time * time))
 end
 
+--- creates a wheel \
+--- vectors should be along the x/z plane
+function vector3h.createwheel(len: number, initialangle: number?)
+	local c = {
+		pointer = vector.create(0, 0, 0);
+		vectors = table.create(len);
+	}
+
+	local step = (2 * math.pi) / len
+
+	for i = 0, len - 1, 1 do
+		local theta = (i * step) + (initialangle or 0)
+		
+		table.insert(c.vectors, vector.create(math.cos(theta), 0, math.sin(theta)))
+	end
+
+	return c
+end
+
+--- returns index of wheel wrt pointer
+function vector3h.wheelresolve(c: typeof(vector3h.createwheel(...)))
+	local step = (2 * math.pi) / #c.vectors
+	local halfstep = 0.5 * step
+
+	for i, vec in ipairs(c.vectors) do
+		local angle = vector.angle(vec, c.pointer)
+
+		if angle > -halfstep and angle < halfstep then
+			return i
+		end
+	end
+
+	return 0
+end
+
 return vector3h

@@ -679,7 +679,7 @@ function net.hook(key: string)
 			end
 		end
 
-		--- recursively removes-then-defers functions bound by signal.once()
+		--- recursively removes-then-defers functions bound by hook.once()
 		local function onces(...: any)
 			local f = table.remove(hook.onces)
 			if f then
@@ -690,7 +690,7 @@ function net.hook(key: string)
 			end
 		end
 
-		--- connects function to this signal
+		--- connects function to this hook
 		hook.connect = function(f: (...any) -> ())
 			table.insert(hook.functions, f)
 
@@ -698,7 +698,7 @@ function net.hook(key: string)
 				table.remove(hook.functions, table.find(hook.functions, f) or 0)
 			end
 		end
-		--- connects function to this signal to be fired once
+		--- connects function to this hook to be fired once
 		hook.once = function(f: (...any) -> ())
 			table.insert(hook.onces, f)
 
@@ -706,13 +706,13 @@ function net.hook(key: string)
 				table.remove(hook.onces, table.find(hook.onces, f) or 0)
 			end
 		end
-		--- yields thread until this signal is fired
+		--- yields thread until this hook is fired
 		hook.wait = function()
 			table.insert(hook.yields, coroutine.running())
 
 			return coroutine.yield()
 		end
-		--- calls functions bound to this signal along with any arguments passed
+		--- calls functions bound to this hook along with any arguments passed
 		hook.fire = function(...: any)
 			for _, f in hook.functions do
 				task.defer(f, ...)
@@ -721,12 +721,12 @@ function net.hook(key: string)
 			onces(...)
 			resume(...)
 		end
-		--- disconnects all functions bound to this signal
+		--- disconnects all functions bound to this hook
 		hook.disconnectall = function()
 			table.clear(hook.functions)
 			table.clear(hook.onces)
 		end
-		--- destroys this signal, resuming any yielded threads prior to destruction
+		--- destroys this hook, resuming any yielded threads prior to destruction
 		hook.destroy = function(...: any)
 			resume(...)
 
@@ -749,6 +749,197 @@ end
 --- returns server-authoritative `DateTime.now().UnixTimestampMillis`
 function net.ms()
 	return buffer.readf64(net.unixbuffer, 0)
+end
+
+--- runs function at `step` second interval for `time` seconds \
+--- exceptions: \
+--- `step == -1`: function is called every heartbeat \
+--- `time == -1`: bound function runs indefinitely
+function net.framerule(step: number, time: number, f: (dt: number, elapsed: number) -> (), immediate: boolean?): (RBXScriptConnection, thread?)
+	if time == -1 then
+		local start = os.clock()
+		local recent = os.clock()
+		if immediate ~= false then
+			recent -= step or 1/60 --- doesn't matter
+		end
+
+		if step == -1 then
+			return RunService.Heartbeat:Connect(function(dt)
+				f(dt, os.clock() - start)
+			end)
+		else
+			return RunService.Heartbeat:Connect(function()
+				local now = os.clock()
+				local dt = now - recent
+				if dt > step then
+					recent = now - (dt - step)
+
+					f(dt, now - start)
+				end
+			end)
+		end
+	else
+		local connection = net.framerule(step, -1, f, immediate)
+
+		return connection, task.delay(time, connection.Disconnect, connection)
+	end
+end
+
+--- runs function at `step` stepfrequency for `time` seconds \
+--- exceptions: \
+--- `time == -1`: bound function runs indefinitely
+function net.fixedstep(step: Enum.StepFrequency, time: number, f: (dt: number) -> ()): (RBXScriptConnection, thread?)
+	if time == -1 then
+		return RunService:BindToSimulation(f, step)
+	else
+		local connection = net.fixedstep(step, -1, f)
+
+		return connection, task.delay(time, connection.Disconnect, connection)
+	end
+end
+
+--- returns a timestamp describing time wrt format option or time in minutes
+function net.timestamp(time: number, format: "hour" | "halfday" | "day" | "week" | "month" | "season" | "biannual" | "year" | number)
+	local datetable = os.date("!*t", time) --- read from this table as a truth state
+	local nextdatetable = table.clone(datetable) --- write to this table, keys inherited from datetable
+
+	local timestamp = {
+		--- unique, non-recurring string describing format time
+		id = "";
+		--- unique, non-recurring number describing format time
+		seed = 0;
+		--- time until format changes
+		change = 0;
+	}
+
+	if type(format) == "number" then
+		--- `Format: 5`
+		--- `February 14, 2024, 06:44` --> `"2024_45_6_8"`
+		--- `Format: 10`
+		--- `February 14, 2024, 06:44` --> `"2024_45_6_4"`
+		--- `Format: 15`
+		--- `February 14, 2024, 06:44` --> `"2024_45_6_2"`
+		nextdatetable.min = format * -((nextdatetable.min + 1) // -format)
+		nextdatetable.sec = 0
+
+		local year, yday, hour, qtrhour = datetable.year, datetable.yday, datetable.hour, -((nextdatetable.min + 1) // -format) - 1
+		timestamp.id = string.format("%d_%d_%d_%d", year, yday, hour, qtrhour)
+		timestamp.seed = tonumber(year .. yday .. hour .. qtrhour) :: number
+	else
+		if format == "hour" then
+			--- `February 14, 2024, 06:44` --> `"2024_45_6"`
+			nextdatetable.hour = math.floor(nextdatetable.hour + 1)
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
+
+			local year, yday, hour = datetable.year, datetable.yday, datetable.hour
+			timestamp.id = string.format("%d_%d_%d", year, yday, hour)
+			timestamp.seed = tonumber(year .. yday .. hour) :: number
+		elseif format == "halfday" then
+			--- `February 14, 2024, 06:44` --> `"2024_45_AM"`
+			--- `February 14, 2024, 16:44` --> `"2024_45_PM"`
+			nextdatetable.hour = 12 * -((nextdatetable.hour + 1) // -12)
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
+
+			local year, yday, phase = datetable.year, datetable.yday, os.date("!%p")
+			timestamp.id = string.format("%d_%d_%s", year, yday, phase)
+			timestamp.seed = tonumber(year .. yday .. string.byte(phase)) :: number
+		elseif format == "day" then
+			--- `February 14, 2024` --> `"2024_45"`
+			nextdatetable.day += 1
+			nextdatetable.hour = 0
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
+
+			local year, yday = datetable.year, datetable.yday
+			timestamp.id = string.format("%d_%d", year, yday)
+			timestamp.seed = tonumber(year .. yday) :: number
+		elseif format == "week" then
+			--- `February 14, 2024` --> `"2024_7_06"` (06th week of 2024)
+			nextdatetable.day += 8 - datetable.wday
+			nextdatetable.hour = 0
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
+
+			local year, week, yweek = datetable.year, datetable.wday, os.date("!%U")
+			timestamp.id = string.format("%d_%d_%s", year, week, yweek)
+			timestamp.seed = tonumber(year .. week .. yweek) :: number
+		elseif format == "month" then
+			--- `February 14, 2024` --> `"2024_02"` (2nd month of 2024)
+			nextdatetable.month = 1 + (nextdatetable.month % 12)
+
+			if nextdatetable.month < datetable.month then
+				--- modulo into next year
+				nextdatetable.year += 1
+			end
+
+			nextdatetable.day = 0
+			nextdatetable.hour = 0
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
+
+			local year, month = datetable.year, os.date("!%m")
+			timestamp.id = string.format("%d_%s", year, month)
+			timestamp.seed = tonumber(year .. month) :: number
+		elseif format == "season" then
+			--- `February 14, 2024` --> `"2024_1"`
+			--- Jan-Mar: `1` (spring)
+			--- Apr-Jun: `2` (summer)
+			--- Jul-Sep: `3` (autumn)
+			--- Oct-Dec: `4` (winter)
+
+			local month = datetable.month
+			local season = 1 + ((month-1) // 3)
+
+			local nextyear = 0
+			local nextseasonmonth = 1 + (season * 3)
+			if nextseasonmonth > 12 then
+				nextyear += 1
+				nextseasonmonth %= 12
+			end
+
+			nextdatetable.month = nextseasonmonth
+			nextdatetable.year += nextyear
+
+			nextdatetable.day = 1
+			nextdatetable.hour = 0
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
+
+			local year = datetable.year
+			timestamp.id = string.format("%d_%d", year, season)
+			timestamp.seed = tonumber(year .. season) :: number
+		elseif format == "biannual" then
+			--- `February 14, 2024` --> `"2024_1"`
+			--- Jan-Jun: `1` (SS)
+			--- Jul-Dec: `2` (FW)
+			nextdatetable.month = -(nextdatetable.month // -6)
+			nextdatetable.day = 1
+			nextdatetable.hour = 0
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
+
+			local year, month = datetable.year, -(datetable.month // -6)
+			timestamp.id = string.format("%d_%d", year, month)
+			timestamp.seed = tonumber(year .. month) :: number
+		elseif format == "year" then
+			--- `February 14, 2024` --> `"2024"`
+			nextdatetable.year += 1
+			nextdatetable.month = 1
+			nextdatetable.day = 1
+			nextdatetable.hour = 0
+			nextdatetable.min = 0
+			nextdatetable.sec = 0
+
+			timestamp.id = tostring(datetable.year)
+			timestamp.seed = tonumber(datetable.year) :: number
+		end
+	end
+
+	timestamp.change = os.time(nextdatetable) - os.time(datetable)
+
+	return timestamp
 end
 
 if IsServer then

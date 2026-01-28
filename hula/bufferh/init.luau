@@ -1,6 +1,8 @@
 --!strict
 --!native
 
+local random = Random.new()
+
 --- writes signed 24-bit integer to buffer
 local function writei24(b: buffer, offset: number, value: number)
 	local bitoffset = offset * 8
@@ -104,6 +106,22 @@ bufferh.writei24 = writei24
 bufferh.readu24 = readu24
 bufferh.writeu24 = writeu24
 
+--- writes random alphanumeric characters `[A-Za-z0-9]` to buffer
+function bufferh.writerandom(b: buffer, offset: number, count: number, R: Random?)
+	for i = 0, count - 1, 1 do
+		local value = (R or random):NextInteger(1, 62)
+		if value <= 26 then --- [a-z] [abcdefghijklmnopqrstuvwxyz] [1-26] -> [97-122] 
+			buffer.writeu8(b, i + offset, value + 96)
+		elseif value <= 52 then --- [A-Z] [ABCDEFGHIJKLMNOPQRSTUVWXYZ] [27-52] -> [65-90] 
+			buffer.writeu8(b, i + offset, value + 38)
+		else --- elseif value <= 62 then --- [0-9] [0123456789] [53-62] -> [48-57]
+			buffer.writeu8(b, i + offset, value - 5)
+		end
+	end
+
+	return b
+end
+
 --- reads unit vector from buffer
 function bufferh.readunitvector(b: buffer, offset: number)
 	return Vector3.new(
@@ -170,8 +188,7 @@ function bufferh.swap(b: buffer, x: number, y: number, range: number?)
 	buffer.copy(b, y, temp, 0, range)
 end
 
---- returns `a == b` \
---- `offset (?=0)` begin comparison at offset
+--- returns `a == b`, starting comparison at `offset`
 function bufferh.eq(a: buffer, b: buffer, offset: number)
 	local alen = buffer.len(a)
 	local blen = buffer.len(b)
@@ -603,6 +620,18 @@ end
 --- writes atb turn available time
 function bufferh.atbwritetime(a: buffer, value: number)
 	buffer.writef64(a, 1, value)
+end
+
+--- returns # of bytes required to store value \
+--- equivalent to `1 + (math.log(value, 2) // 8)`
+function bufferh.numbytes(value: number)
+	return 1 + (math.log(value, 2) // 8)
+end
+
+--- returns # of bits required to store value \
+--- equivalent to `1 + math.log(value, 2) // 1`
+function bufferh.numbits(value: number)
+	return 1 + math.log(value, 2) // 1
 end
 
 return bufferh
