@@ -92,6 +92,16 @@ function mathh.fibonacci(n: number)
 	return math.round(a*b - a*c)
 end
 
+--- returns elo `a` and elo `b` after applying binary `1/0` match scores
+function mathh.elo(a: number, ascore: number, b: number, bscore: number, k: number)
+	local aprobability = 1 / (1 + (10 ^ ((b - a) / 400)))
+	local bprobability = 1 / (1 + (10 ^ ((a - b) / 400)))
+
+	return
+		a + (k * (ascore - aprobability)),
+		b + (k * (bscore - bprobability))
+end
+
 --- returns winner of rally point game with minimum `score` given team 1 points `k` and team 2 points `k` \
 --- `rallypoint(25, 24, 25) -> 0` \
 --- `rallypoint(25, 25, 27) -> 2` \

@@ -135,6 +135,19 @@ function stringh.time(x: number, selector: string, separator: "punc" | "abbr" | 
 	return ts
 end
 
+--- strips all leading zeros from string with option to leave 1
+function stringh.stripleadingzeros(s: string, allbutone: boolean)
+	local gsub, n = string.gsub(s, "^0+", "") --- strip all leading zeros
+	if n > 0 and allbutone == true then --- prepend 0 if 1st character is :
+		--- if string.sub(gsub, 1, 1) == ":" then
+		--- 	gsub = "0" .. gsub
+		--- end
+		gsub = "0" .. gsub
+	end
+
+	return gsub
+end
+
 --- appends ordinal suffix (`st, nd, rd, th`) to number
 function stringh.ordinal(x: number)
 	local a = x % 10
