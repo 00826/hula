@@ -293,17 +293,20 @@ local color3h = {
 			return ColorSequence.new(Color3.fromRGB(w, w, w))
 		end;
 		--- returns color3 in colorsequence at interpolant `a`
-		colorat = function(sequence: ColorSequence, a: number)
+		colorat = function(sequence: ColorSequence, a: number): Color3
 			local lastkeypoint = nil
-			for _, Keypoint in ipairs(sequence.Keypoints) do
-				if a < Keypoint.Time then
-					local time = lastkeypoint.Time
-		
-					return lastkeypoint.Value:Lerp(Keypoint.Value, (a - time) / (Keypoint.Time - time))
+			for _, keypoint in ipairs(sequence.Keypoints) do
+				if lastkeypoint then
+					if a < keypoint.Time then
+						local time = lastkeypoint.Time
+
+						return lastkeypoint.Value:Lerp(keypoint.Value, (a - time) / (keypoint.Time - time))::Color3
+					end
 				end
-				lastkeypoint = Keypoint
+				lastkeypoint = keypoint
 			end
-			return lastkeypoint and lastkeypoint.Value or Color3.fromRGB(255, 255, 255)
+
+			return Color3.fromRGB(255, 255, 255)::Color3
 		end;
 	};
 }

@@ -55,7 +55,7 @@ local function createtypedbuffer(i: number, size: number)
 end
 
 --- resolves optimal remote wrt packet size of net send args
-local function resolveremote(b: buffer, i: {Instance})
+local function resolveremote(b: buffer, i: {Instance}): RemoteEvent|UnreliableRemoteEvent
 	local len = 1 + buffer.len(b) + (#i * 5)
 	
 	if IsServer then
@@ -72,7 +72,7 @@ local function resolveremote(b: buffer, i: {Instance})
 		end
 	end
 
-	if len >= 1000 then
+	if len >= 990 then
 		return RemoteEvent
 	else
 		return UnreliableRemoteEvent
@@ -122,8 +122,8 @@ local net = {
 	framerate = 1/60;
 	
 	ports = {};
-	ships = table.create(255);
-	queue = table.create(64);
+	ships = table.create(255) :: {string};
+	queue = table.create(64) :: { {any} };
 	
 	hooks = {};
 }
@@ -133,7 +133,7 @@ local net = {
 --- `port.serverrecvlimitmillis` defaults to `net.framerate * 1000`
 function net.port(key: string)
 	if not net.ports[key] then
-		net.ports[key] = {
+		local port = {
 			serverrecvlimitmillis = net.framerate * 1000;
 			players = {};
 		}
@@ -154,10 +154,8 @@ function net.port(key: string)
 			end
 		end
 
-		local port = net.ports[key]
-
 		--- queues value to be sent through this port \
-		--- `force(="Reliable"|"Unreliable")`: forces remoteevent when this value is sent \
+		--- `force(="reliable"|"unreliable")`: forces remoteevent when this value is sent \
 		--- `force(=nil)`: automatically resolves remoteevent wrt value size \
 		--- `front(=true)`: value is inserted to front of queue \
 		--- `front(=false|nil)`: value is inserted to back of queue
@@ -167,7 +165,7 @@ function net.port(key: string)
 			| Player
 			| { number|Player }
 			| (Player) -> boolean,
-			force: "Reliable"|"Unreliable"?,
+			force: "reliable"|"unreliable"?,
 			front: boolean?
 		)
 			local ship = table.find(net.ships, key)
@@ -202,10 +200,8 @@ function net.port(key: string)
 
 					--- resolve recv limit wrt player
 					local nowmillis = DateTime.now().UnixTimestampMillis
-					if not port.players[player] then
-						port.players[player] = 0
-					end
 					local lastrecv = port.players[player]
+					lastrecv = type(lastrecv) == "number" and lastrecv or 0
 
 					if nowmillis - lastrecv >= port.serverrecvlimitmillis then
 						port.players[player] = nowmillis
@@ -240,6 +236,8 @@ function net.port(key: string)
 				}
 			end
 		end
+
+		net.ports[key] = port
 	end
 
 	return net.ports[key]
@@ -361,7 +359,7 @@ function net.pack(value: any, instances: {Instance}?)
 
 		local prebuffer = buffer.create(size)
 		local offset = 0
-		for _, thisb in ipairs(result) do
+		for _, thisb in ipairs(result::any) do
 			local thislen = buffer.len(thisb)
 			buffer.copy(prebuffer, offset, thisb, 0, thislen)
 			offset += thislen
@@ -394,10 +392,10 @@ function net.pack(value: any, instances: {Instance}?)
 			local integer, fraction = math.modf(value)
 			if fraction == 0 then
 				--- integer
-				for _, a in ipairs(integer < 0 and ilookup or ulookup) do
+				for _, a in ipairs(integer < 0 and (ilookup::any) or (ulookup::any)) do
 					if integer >= a.value[1] and integer <= a.value[2] then
 						local itype = a.key
-						b = createtypedbuffer(table.find(typelookup, itype)::number, a.size)
+						b = createtypedbuffer(table.find(typelookup::any, itype)::number, a.size)
 						a.write(b, 1, integer)
 
 						break
@@ -440,7 +438,7 @@ function net.pack(value: any, instances: {Instance}?)
 
 		local vecbuffer = buffer.create(size)
 		local offset = 0
-		for _, thisb in ipairs(vec) do
+		for _, thisb in ipairs(vec::any) do
 			buffer.copy(vecbuffer, offset, thisb, 0, buffer.len(thisb))
 			offset += buffer.len(thisb)
 		end
@@ -462,7 +460,7 @@ function net.pack(value: any, instances: {Instance}?)
 
 		local vecbuffer = buffer.create(size)
 		local offset = 0
-		for _, thisb in ipairs(vec) do
+		for _, thisb in ipairs(vec::any) do
 			buffer.copy(vecbuffer, offset, thisb, 0)
 			offset += buffer.len(thisb)
 		end
@@ -484,7 +482,7 @@ function net.pack(value: any, instances: {Instance}?)
 
 		local vecbuffer = buffer.create(size)
 		local offset = 0
-		for _, thisb in ipairs(vec) do
+		for _, thisb in ipairs(vec::any) do
 			buffer.copy(vecbuffer, offset, thisb)
 			offset += buffer.len(thisb)
 		end
@@ -528,16 +526,16 @@ end
 --- `value`: unpacked value, packed by `decode`, beginning at `offset`, using supplementary instance table `instances` \
 --- `offset`: final offset after unpacking the buffer, should equate to `buffer.len(b)`
 function net.unpack(pack: buffer, offset: number, instances: {Instance}): (any, number)
-	local type = typelookup[buffer.readu8(pack, offset)]
+	local datatype = typelookup[buffer.readu8(pack, offset)]::any
 
-	if type == "nil" then
+	if datatype == "nil" then
 		return nil, offset
 
-	elseif type == "Instance" then
+	elseif datatype == "Instance" then
 		offset += 1
 		return instances[buffer.readu8(pack, offset)], offset + 1
 
-	elseif type == "table" then
+	elseif datatype == "table" then
 		offset += 1
 		local len = buffer.readu16(pack, offset)
 
@@ -554,7 +552,7 @@ function net.unpack(pack: buffer, offset: number, instances: {Instance}): (any, 
 
 		return result, offset
 
-	elseif type == "buffer" then
+	elseif datatype == "buffer" then
 		offset += 1
 		local len = buffer.readu16(pack, offset)
 		local thisbuffer = buffer.create(len)
@@ -564,52 +562,57 @@ function net.unpack(pack: buffer, offset: number, instances: {Instance}): (any, 
 
 		return thisbuffer, offset + len
 
-	elseif type == "string" then
+	elseif datatype == "string" then
 		offset += 1
 		local len = buffer.readu8(pack, offset)
 
 		offset += 1
 		return buffer.readstring(pack, offset, len), offset + len
 
-	elseif type == "boolean" then
+	elseif datatype == "boolean" then
 		offset += 1
 		return buffer.readu8(pack, offset) == 1, offset + 1
 
-	elseif type == "number" then
+	elseif datatype == "number" then
 		--- last case
 
-	elseif type == "Vector2" then
-		local position = table.create(2)
+	elseif datatype == "Vector2" then
+		local position = table.create(2)::{number}
 		for i = 1, 2 do
 			offset += 1
 			local value, nextoffset = net.unpack(pack, offset, instances)
+			assert(type(value) == "number", string.format("expected number, got %s", type(value)))
 			offset = nextoffset - 1
 			table.insert(position, value)
 		end
 
 		return Vector2.new(position[1], position[2]), offset + 1
 
-	elseif type == "Vector3" then
-		local position = table.create(3)
+	elseif datatype == "Vector3" then
+		local position = table.create(3)::{number}
 		for i = 1, 3 do
 			offset += 1
 			local value, nextoffset = net.unpack(pack, offset, instances)
+			assert(type(value) == "number", string.format("expected number, got %s", type(value)))
+			
 			offset = nextoffset - 1
 			table.insert(position, value)
 		end
 
 		return Vector3.new(position[1], position[2], position[3]), offset + 1
 
-	elseif type == "CFrame" then
-		local position = table.create(3)
+	elseif datatype == "CFrame" then
+		local position = table.create(3)::{number}
 		for i = 1, 3 do
 			offset += 1
 			local value, nextoffset = net.unpack(pack, offset, instances)
+			assert(type(value) == "number", string.format("expected number, got %s", type(value)))
+
 			offset = nextoffset - 1
 			table.insert(position, value)
 		end
 
-		local rotation = table.create(3)
+		local rotation = table.create(3)::{number}
 		for i = 1, 3 do
 			offset += 1
 			table.insert(rotation, math.map(buffer.readu8(pack, offset), 0, 255, -math.pi, math.pi))
@@ -617,36 +620,38 @@ function net.unpack(pack: buffer, offset: number, instances: {Instance}): (any, 
 
 		return CFrame.new(position[1], position[2], position[3]) * CFrame.fromOrientation(rotation[1], rotation[2], rotation[3]), offset + 1
 
-	elseif type == "Color3" then
-		local color = table.create(3)
+	elseif datatype == "Color3" then
+		local color = table.create(3)::{number}
 		for i = 1, 3 do
 			offset += 1
 			local value, nextoffset = net.unpack(pack, offset, instances)
+			assert(type(value) == "number", string.format("expected number, got %s", type(value)))
+
 			offset = nextoffset - 1
 			table.insert(color, value)
 		end
 
 		return Color3.fromRGB(color[1], color[2], color[3]), offset + 1
 
-	elseif type == "f32" then
+	elseif datatype == "f32" then
 		offset += 1
 		return buffer.readf32(pack, offset), offset + 4
 
-	elseif type == "f64" then
+	elseif datatype == "f64" then
 		offset += 1
 		return buffer.readf64(pack, offset), offset + 8
 
 	else
 		--- true number case
 		for _, uentry in ulookup do
-			if uentry.key == type then
+			if uentry.key == datatype then
 
 				offset += 1
 				return uentry.read(pack, offset), offset + uentry.size
 			end
 		end
 		for _, ientry in ilookup do
-			if ientry.key == type then
+			if ientry.key == datatype then
 
 				offset += 1
 				return ientry.read(pack, offset), offset + ientry.size
@@ -661,12 +666,11 @@ end
 --- functions are deferred
 function net.hook(key: string)
 	if not net.hooks[key] then
-		net.hooks[key] = {
-			functions = {};
-			onces = {};
-			yields = {};
+		local hook = {
+			functions = {} :: { () -> () };
+			onces = {} :: { () -> () };
+			yields = {} :: { thread };
 		}
-		local hook = net.hooks[key]
 
 		--- recursively resumes yielded threads
 		local function resume(...: any)
@@ -736,6 +740,8 @@ function net.hook(key: string)
 			table.clear(hook)
 			net.hooks[key] = nil
 		end
+
+		net.hooks[key] = hook
 	end
 
 	return net.hooks[key]
@@ -766,7 +772,7 @@ function net.framerule(step: number, time: number, f: (dt: number, elapsed: numb
 		if step == -1 then
 			return RunService.Heartbeat:Connect(function(dt)
 				f(dt, os.clock() - start)
-			end)
+			end), nil
 		else
 			return RunService.Heartbeat:Connect(function()
 				local now = os.clock()
@@ -776,7 +782,7 @@ function net.framerule(step: number, time: number, f: (dt: number, elapsed: numb
 
 					f(dt, now - start)
 				end
-			end)
+			end), nil
 		end
 	else
 		local connection = net.framerule(step, -1, f, immediate)
@@ -790,7 +796,7 @@ end
 --- `time == -1`: bound function runs indefinitely
 function net.fixedstep(step: Enum.StepFrequency, time: number, f: (dt: number) -> ()): (RBXScriptConnection, thread?)
 	if time == -1 then
-		return RunService:BindToSimulation(f, step)
+		return RunService:BindToSimulation(f, step), nil
 	else
 		local connection = net.fixedstep(step, -1, f)
 
@@ -953,32 +959,33 @@ if IsServer then
 				local force = entry[4]
 
 				local remote
-				if force == "Reliable" then
+				if force == "reliable" then
 					remote = RemoteEvent
-				elseif force == "Unreliable" then
+				elseif force == "unreliable" then
 					remote = UnreliableRemoteEvent
 				else
 					remote = resolveremote(scoped, instances)	
 				end
 				
 				if type(client) == "nil" then --- fire all
-					remote:FireAllClients(scoped, instances)
+					(remote::any):FireAllClients(scoped, instances)
 				elseif type(client) == "number" then --- fire by userid
 					local player = Players:GetPlayerByUserId(client)
 					if player then
-						remote:FireClient(player, scoped, instances)
+						(remote::any):FireClient(player, scoped, instances)
 					end
 				elseif typeof(client) == "Instance" then --- fire by player
 					assert(client:IsA("Player"), string.format("expected instance player, got %s %s", client.ClassName, client.Name))
-					remote:FireClient(client, scoped, instances)
+
+					;(remote::any):FireClient(client, scoped, instances)
 				elseif type(client) == "table" then --- fire by list of userids or players
 					for _, a in client do
 						if typeof(a) == "Instance" then
-							remote:FireClient(a, scoped, instances)
+							(remote::any):FireClient(a, scoped, instances)
 						elseif typeof(a) == "number" then
 							local player = Players:GetPlayerByUserId(a)
 							if player then
-								remote:FireClient(player, scoped, instances)
+								(remote::any):FireClient(player, scoped, instances)
 							end
 						else
 							warn("value dropped for client", typeof(a), a, "expected instance player or number userid")
@@ -987,7 +994,7 @@ if IsServer then
 				elseif type(client) == "function" then --- fire by case
 					for _, a in Players:GetPlayers() do
 						if client(a) == true then
-							remote:FireClient(a, scoped, instances)
+							(remote::any):FireClient(a, scoped, instances)
 						end
 					end
 				else
@@ -1035,9 +1042,9 @@ if IsServer then
 
 	do --- cleanup port serverrecvlimits
 		Players.PlayerRemoving:Connect(function(player: Player)
-			for _, p: typeof(net.port("")) in net.ports do
+			--[[for _, p in net.ports do
 				p.players[player] = nil
-			end
+			end]]
 		end)
 	end
 else
@@ -1050,15 +1057,15 @@ else
 				local force = entry[4]
 
 				local remote
-				if force == "Reliable" then
+				if force == "reliable" then
 					remote = RemoteEvent
-				elseif force == "Unreliable" then
+				elseif force == "unreliable" then
 					remote = UnreliableRemoteEvent
 				else
 					remote = resolveremote(scoped, instances)	
 				end
 
-				remote:FireServer(scoped, instances)
+				(remote::any):FireServer(scoped, instances)
 
 				flush(queue)
 			else

@@ -19,7 +19,7 @@ end
 local function bezier(u: {UDim2}, a: number)
 	local len = #u
 	if len > 1 then
-		local newpoints = table.create(len)
+		local newpoints = table.create(len) :: {UDim2}
 		for i, v in ipairs(u) do
 			local w = u[i + 1]
 			if not w then break end
@@ -168,7 +168,7 @@ type setcore =
 	}) -> ())
 
 local setcore: setcore = function(parameter, value)
-	return StarterGui:SetCore(parameter)
+	StarterGui:SetCore(parameter)
 end
 
 --- returns `StarterGui:SetCore(parameter, value)`
@@ -196,6 +196,7 @@ local rbxthumb: rbxthumb = function(type, id, size)
 	end
 end
 
+--- returns `string.format("rbxthumb://type=%s&id=%d&w=%s&h=%s", type, id, unpack(string.split(size, "x")))`
 gui.rbxthumb = rbxthumb
 
 --- returns `GuiService.PreferredTextSize`
@@ -414,7 +415,7 @@ end
 --- creates a textqueue, used for displaying text messages
 function gui.createtextqueue(separator: string, messagelifetime: number, alloc: number)
 	return {
-		queue = table.create(alloc);
+		queue = table.create(alloc) :: { { text: string, timestamp: number, time: number } };
 		
 		separator = separator;
 		messagelifetime = messagelifetime;
@@ -487,7 +488,7 @@ function gui.nextguiobject(guiobjects: {GuiObject}, thumbstickvector: Vector3, c
 
 	local point = current.AbsolutePosition + (current.AbsoluteSize * 0.5)
 
-	local guiobjectswithinangle = table.create(#guiobjects)
+	local guiobjectswithinangle = table.create(#guiobjects) :: {GuiObject}
 
 	for _, guiobject in guiobjects do
 		if guiobject == current then continue end
@@ -501,13 +502,13 @@ function gui.nextguiobject(guiobjects: {GuiObject}, thumbstickvector: Vector3, c
 		table.insert(guiobjectswithinangle, guiobject)
 	end
 
-	table.sort(guiobjectswithinangle, function(a, b)
+	table.sort(guiobjectswithinangle, function(a: GuiObject, b: GuiObject)
 		--- vector lib incompatible w vector2
 		--- local dista = vector.magnitude(a.AbsolutePosition::any + (a.AbsoluteSize*0.5) - point)
 		--- local distb = vector.magnitude(b.AbsolutePosition::any + (b.AbsoluteSize*0.5) - point)
 		local dista = (a.AbsolutePosition + (a.AbsoluteSize*0.5) - point).Magnitude
 		local distb = (b.AbsolutePosition + (b.AbsoluteSize*0.5) - point).Magnitude
-
+		--- 
 		return dista < distb
 	end)
 
@@ -539,7 +540,7 @@ end
 function gui.findhovertarget(list: {GuiObject}, insetmouselocation: Vector2): GuiObject?
 	local mousex, mousey = insetmouselocation.X, insetmouselocation.Y
 
-	local inbounds = table.create(#list)
+	local inbounds = table.create(#list) :: {GuiObject}
 
 	for _, guiobject in ipairs(list) do
 		local topleft = guiobject.AbsolutePosition
@@ -557,7 +558,7 @@ function gui.findhovertarget(list: {GuiObject}, insetmouselocation: Vector2): Gu
 
 	if #inbounds > 1 then
 		--- sort by distance from center of guiobject
-		table.sort(inbounds, function(a, b)
+		table.sort(inbounds, function(a: GuiObject, b: GuiObject)
 			--- vector lib incompatible w vector2
 			--- local dista = vector.magnitude(a.AbsolutePosition::any + (a.AbsoluteSize*0.5) - insetmouselocation)
 			--- local distb = vector.magnitude(b.AbsolutePosition::any + (b.AbsoluteSize*0.5) - insetmouselocation)

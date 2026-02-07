@@ -82,8 +82,10 @@ function instanceh.setassetid(
 	content: string|number|Content?,
 	propertyscope: string?
 )
-	if type(content) == "number" or type(content) == "string" then
-		content = instanceh.content(content)
+	if type(content) == "number" then
+		content = Content.fromAssetId(content)
+	elseif type(content) == "string" then
+		content = Content.fromUri(content)
 	else
 		content = content or Content.none
 	end
@@ -135,56 +137,14 @@ function instanceh.setassetid(
 	return scope, value
 end
 
---- converts uri or assetid into `Content` form \
---- numeric `uriorassetid` is prefixed with `"rbxassetid://"` \
---- `Content` with `uriorassetid` is cached for faster re-access \
---- \
---- `uriorassetid == "" -> Content.none` \
---- `uriorassetid == nil -> nil`
-function instanceh.content(uriorassetid: string|number?): Content?
-	if type(uriorassetid) == "string" then
-		if uriorassetid == "" then
-			return Content.none
-		else
-			local content = instanceh.contentcache[uriorassetid]
-			if not content then
-				instanceh.contentcache[uriorassetid] = Content.fromUri(uriorassetid)
-				content = instanceh.contentcache[uriorassetid]
-			end
-
-			return content::Content
-		end
-	elseif type(uriorassetid) == "number" then
-		return instanceh.content("rbxassetid://" .. tostring(uriorassetid))
-	elseif type(uriorassetid) == "nil" then
-		return nil
-	else
-		error(string.format("expected uriorassetid to be string or number, got %s", type(uriorassetid)))
-	end
-end
-
---- takes variants and caches their `Content` equivalent for faster re-access by `instanceh.content(...)`
-function instanceh.contentaddtocache(list: {number|string|Content})
-	for _, c in list do
-		if typeof(c) ~= "Content" then
-			instanceh.content(c)
-		else
-			local uri = c.Uri
-			if uri then
-				if not instanceh.contentcache[uri] then
-					instanceh.contentcache[uri] = c
-				end
-			end
-		end
-	end
-end
-
 --- applies attribute debounce to instance, returning true if debounce passes \
 --- if `time` is nil, the debounce attribute is reset and the function will return true
 function instanceh.debounce(thing: Instance, name: string, now: number?, time: number?)
 	if time then
 		assert(now, "'now' must be passed if time ~= nil")
-		local later = thing:GetAttribute(instanceh.debounceflagprefix .. name) or 0
+		local later = thing:GetAttribute(instanceh.debounceflagprefix .. name)
+		later = type(later) == "number" and later or 0
+
 		if later < now then
 			thing:SetAttribute(instanceh.debounceflagprefix .. name, now + time)
 
@@ -315,7 +275,7 @@ type adornmenttransform = {
 }
 
 --- sets adornment base properties
-local function setadornmentbaseproperties(adornment: HandleAdornment, a: adornmentbase & {at: CFrame|Vector3?})
+local function setadornmentbaseproperties(adornment: HandleAdornment, a: adornmentbase & {at: CFrame|Vector3})
 	if a.adornee ~= nil then
 		adornment.Adornee = a.adornee
 	end
@@ -616,7 +576,7 @@ function instanceh.imagehandleadornment(
 			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
 			
 			Size = b.size;
-			[contentscope] = instanceh.content(b.image);
+			[contentscope] = b.image and Content.fromUri(b.image) or nil;
 
 			Parent = b.parent;
 		}
@@ -1025,7 +985,7 @@ function instanceh.createtransparencycontroller(thing: Instance)
 		realtransparency = 0;
 
 		disconnected = false;
-		cache = table.create(#things);
+		cache = table.create(#things)::{Instance};
 		descendantadded = nil :: RBXScriptConnection?;
 		descendantremoving = nil :: RBXScriptConnection?;
 	}
@@ -1036,17 +996,17 @@ function instanceh.createtransparencycontroller(thing: Instance)
 		end
 	end
 
-	controller.descendantadded = thing.DescendantAdded:Connect(function(thisthing: any)
+	controller.descendantadded = thing.DescendantAdded:Connect(function(thisthing)
 		if instanceh.istransparencymodifiable(thisthing) and not table.find(controller.cache, thisthing) then
 			table.insert(controller.cache, thisthing)
 			if thisthing:IsA("HandleAdornment") then
 				thisthing.Visible = controller.realtransparency ~= 1
 			else
-				thisthing.LocalTransparencyModifier = controller.realtransparency
+				(thisthing::any).LocalTransparencyModifier = controller.realtransparency
 			end
 		end
 	end)
-	controller.descendantremoving = thing.DescendantRemoving:Connect(function(thisthing: any)
+	controller.descendantremoving = thing.DescendantRemoving:Connect(function(thisthing)
 		if instanceh.istransparencymodifiable(thisthing) then
 			table.remove(controller.cache, table.find(controller.cache, thisthing) or 0)
 		end
@@ -1073,11 +1033,11 @@ function instanceh.transparencycontrollerstep(tc: typeof(instanceh.createtranspa
 
 	local target = tc.targettransparency
 	if target ~= tc.realtransparency then
-		for _, thing: any in tc.cache do
+		for _, thing in tc.cache do
 			if thing:IsA("HandleAdornment") then
 				thing.Visible = target ~= 1
 			else
-				thing.LocalTransparencyModifier = target
+				(thing::any).LocalTransparencyModifier = target
 			end
 		end
 		tc.realtransparency = target
@@ -1095,21 +1055,15 @@ end
 --- `string player name`
 function instanceh.resolveplayer(player: Player|number|string|Instance): Player?
 	if type(player) == "number" then
-		player = Players:GetPlayerByUserId(player)
+		return Players:GetPlayerByUserId(player)
 	elseif type(player) == "string" then
-		player = Players:QueryDescendants(">#" .. player)[1]
+		return Players:QueryDescendants(">#" .. player)[1]::Player?
 	elseif typeof(player) == "Instance" then
 		if player:IsA("Player") then
-			--- fine
-		elseif player:IsA("Instance") then
-			player = Players:GetPlayerFromCharacter(player)
+			return player
+		elseif player:IsA("Model") then
+			return Players:GetPlayerFromCharacter(player)
 		end
-	end
-
-	if player ~= nil then
-		assert(typeof(player) == "Instance" and player:IsA("Player"), "error resolving player")
-
-		return player
 	end
 
 	return nil
@@ -1220,7 +1174,7 @@ function instanceh.createappearancedescription(t: {[string]: any} | HumanoidDesc
 
 						insertmodel:Destroy()
 					else
-						warn(`shirt or pants or shirtgraphic not found (classname "{thing.ClassName}")`)
+						warn("shirt or pants or shirtgraphic not found")
 					end
 				end
 			end
@@ -1233,7 +1187,7 @@ function instanceh.createappearancedescription(t: {[string]: any} | HumanoidDesc
 				return instanceh.emptydescription()
 			end
 
-			return instanceh.createappearancedescription(Players:GetHumanoidDescriptionFromUserId(t.UserId))
+			return instanceh.createappearancedescription(Players:GetHumanoidDescriptionFromUserIdAsync(t.UserId))
 		end
 	end
 
@@ -1315,7 +1269,7 @@ function instanceh.createaccessory(assetid: number?)
 		specialmesh.Scale = Vector3.one
 		specialmesh.Parent = accessorypart
 
-		return accessorypart
+		return accessorypart::BasePart
 	end
 
 	assert(IsServer, "instanceh.createaccessory() can only be called on server (InsertService limitation T__T)")
@@ -1376,7 +1330,7 @@ end
 --- creates a mixtape
 function instanceh.createmixtape(tracklist: {Sound})
 	--- original volumes
-	local volumes = table.create(#tracklist)
+	local volumes = table.create(#tracklist)::{number}
 	for i, track in ipairs(tracklist) do
 		table.insert(volumes, track.Volume)
 		track.Volume = 0
@@ -1442,7 +1396,7 @@ end
 function instanceh.preloadasync(assets: {any}, f: ((contentstring: string, assetfetchstatus: Enum.AssetFetchStatus) -> ())?)
 	local contentprovider = game:GetService("ContentProvider")
 
-	return pcall(contentprovider.PreloadAsync, contentprovider, assets, f)
+	return pcall(contentprovider.PreloadAsync, contentprovider, assets, f::any)
 end
 
 --- filters list of preload-able asset types \

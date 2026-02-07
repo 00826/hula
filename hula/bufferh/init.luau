@@ -447,7 +447,7 @@ end
 --- writes value to bar
 function bufferh.barwritevalue(b: buffer, value: number)
 	local write, size = bufferh.barresolvewritefunction(b)
-	assert(write, size)
+	assert(write, string.format("unknown write function for size %d", size))
 
 	write(b, 0, value)
 end
@@ -455,7 +455,7 @@ end
 --- writes maxvalue to bar
 function bufferh.barwritemaxvalue(b: buffer, maxvalue: number)
 	local write, size = bufferh.barresolvewritefunction(b)
-	assert(write, size)
+	assert(write, string.format("unknown write function for size %d", size))
 
 	write(b, size, maxvalue)
 end
@@ -463,7 +463,7 @@ end
 --- returns value of bar
 function bufferh.barreadvalue(b: buffer)
 	local read, size = bufferh.barresolvereadfunction(b)
-	assert(read, size)
+	assert(read, string.format("unknown read function for size %d", size))
 
 	return read(b, 0)
 end
@@ -471,7 +471,7 @@ end
 --- returns maxvalue of bar
 function bufferh.barreadmaxvalue(b: buffer)
 	local read, size = bufferh.barresolvereadfunction(b)
-	assert(read, size)
+	assert(read, string.format("unknown read function for size %d", size))
 
 	return read(b, size)
 end
@@ -479,7 +479,7 @@ end
 --- returns bar `value, maxvalue`
 function bufferh.barunpack(b: buffer)
 	local read, size = bufferh.barresolvereadfunction(b)
-	assert(read, size)
+	assert(read, string.format("unknown read function for size %d", size))
 	
 	return read(b, 0), read(b, size)
 end

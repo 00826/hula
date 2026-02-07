@@ -55,11 +55,11 @@ function stringh.time(x: number, selector: string, separator: "punc" | "abbr" | 
 		end
 
 		if separator == "punc" then
-			ts ..= string.format("%0" .. tostring(zeropadding) .. "d:", y)
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d:"::any, y)
 		elseif separator == "abbr" then
-			ts ..= string.format("%0" .. tostring(zeropadding) .. "dd", y)
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "dd"::any, y)
 		elseif separator == "word" then
-			ts ..= string.format("%0" .. tostring(zeropadding) .. "d days ", y)
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d days "::any, y)
 		end
 	end
 	if string.find(selector, "hh") then
@@ -70,11 +70,11 @@ function stringh.time(x: number, selector: string, separator: "punc" | "abbr" | 
 		end
 
 		if separator == "punc" then
-			ts ..= string.format("%0" .. tostring(zeropadding) .. "d:", y)
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d:"::any, y)
 		elseif separator == "abbr" then
-			ts ..= string.format("%0" .. tostring(zeropadding) .. "dh", y)
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "dh"::any, y)
 		elseif separator == "word" then
-			ts ..= string.format("%0" .. tostring(zeropadding) .. "d hours ", y)
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d hours "::any, y)
 		end
 	end
 	if string.find(selector, "mm") then
@@ -85,11 +85,11 @@ function stringh.time(x: number, selector: string, separator: "punc" | "abbr" | 
 		end
 
 		if separator == "punc" then
-			ts ..= string.format("%0" .. tostring(zeropadding) .. "d:", y)
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d:"::any, y)
 		elseif separator == "abbr" then
-			ts ..= string.format("%0" .. tostring(zeropadding) .. "dm", y)
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "dm"::any, y)
 		elseif separator == "word" then
-			ts ..= string.format("%0" .. tostring(zeropadding) .. "d minutes ", y)
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d minutes "::any, y)
 		end
 	end
 	if string.find(selector, "ss") then
@@ -100,11 +100,11 @@ function stringh.time(x: number, selector: string, separator: "punc" | "abbr" | 
 		end
 		
 		if separator == "punc" then
-			ts ..= string.format("%0" .. tostring(zeropadding) .. "d", y)
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d"::any, y)
 		elseif separator == "abbr" then
-			ts ..= string.format("%0" .. tostring(zeropadding) .. "ds", y)
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "ds"::any, y)
 		elseif separator == "word" then
-			ts ..= string.format("%0" .. tostring(zeropadding) .. "d seconds ", y)
+			ts ..= string.format("%0" .. tostring(zeropadding) .. "d seconds "::any, y)
 		end
 	end
 	if string.find(selector, "ms") then

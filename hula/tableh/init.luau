@@ -87,7 +87,7 @@ end
 
 --- returns all keys in `t`
 function tableh.keys<T>(t: {[T]: any})
-	local result = {}
+	local result = {}::{T}
 	for k in t do
 		table.insert(result, k)
 	end
@@ -101,7 +101,7 @@ function tableh.ipairsr<T>(t: {T}): (({T}, number) -> (number?, T), {T}, number)
 		for i = #t, 1, -1 do
 			coroutine.yield(i, t[i])
 		end
-	end), t, 0
+	end)::any, t, 0
 end
 
 --- returns random value from list
@@ -261,8 +261,8 @@ end
 --- `string indexer type` of `b` \
 --- `boolean canreconcile` if reconciling `a` and `b` will result in a mixed table
 function tableh.canreconcile(a: {[any]: any}, b: {[any]: any})
-	local akeytype = type(next(a)::any)
-	local bkeytype = type(next(b)::any)
+	local akeytype = type(next(a)::any)::any
+	local bkeytype = type(next(b)::any)::any
 	if bkeytype ~= "nil" and akeytype ~= "nil" then
 		if (bkeytype == "number" or akeytype == "number")
 		and (bkeytype ~= akeytype)
@@ -332,7 +332,7 @@ function tableh.difference(a: any, b: any): any
 				local preconcat = {}
 				for _, v in result do
 					len += 1
-					if table.find(tableh.instructions, v) then
+					if table.find(tableh.instructions::any, v) then
 						table.insert(preconcat, v)
 					end
 				end

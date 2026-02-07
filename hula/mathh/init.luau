@@ -32,7 +32,7 @@ local mathh = {
 		--- scales numbersequence by `x`
 		scale = function(numbersequence: NumberSequence, x: number)
 			local keypoints = numbersequence.Keypoints
-			local newsequence = table.create(#keypoints)
+			local newsequence = table.create(#keypoints)::{NumberSequenceKeypoint}
 
 			for _, keypoint in ipairs(keypoints) do
 				table.insert(newsequence, NumberSequenceKeypoint.new(keypoint.Time, keypoint.Value * x))
@@ -153,7 +153,7 @@ function mathh.aligncenter(x: number, reverse: boolean?)
 	if x == 1 then
 		return table.create(1, 0)
 	else
-		local t = table.create(x)
+		local t = table.create(x) :: {number}
 		local shift = 1 + x // 2
 		for i = 1, x do
 			i -= shift

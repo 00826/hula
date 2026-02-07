@@ -138,7 +138,7 @@ function patronage.productinfo(p: typeof(patronage.createproduct(...))): (boolea
 	if p.type.EnumType == Enum.MembershipType then
 		return false, "cannot get product info for enumtype 'Enum.MembershipType'"::any
 	else
-		return pcall(MarketplaceService.GetProductInfoAsync, MarketplaceService, p.key, p.type)
+		return pcall(MarketplaceService.GetProductInfoAsync, MarketplaceService, p.key::any, p.type::any)
 	end
 end
 
@@ -150,15 +150,15 @@ function patronage.productownership(p: typeof(patronage.createproduct(...)), pla
 	local key = p.key
 
 	if type == Enum.InfoType.Asset then
-		return pcall(MarketplaceService.PlayerOwnsAssetAsync, MarketplaceService, player, key)
+		return pcall(MarketplaceService.PlayerOwnsAssetAsync, MarketplaceService, player, key::any)
 	elseif type == Enum.InfoType.Bundle then
-		return pcall(MarketplaceService.PlayerOwnsBundleAsync, MarketplaceService, player, key)
+		return pcall(MarketplaceService.PlayerOwnsBundleAsync, MarketplaceService, player, key::any)
 	elseif type == Enum.InfoType.GamePass then
-		return pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, key)
+		return pcall(MarketplaceService.UserOwnsGamePassAsync, MarketplaceService, player.UserId, key::any)
 	elseif type == Enum.InfoType.Product then
 		return true, false --- can never own a devproduct
 	elseif type == Enum.InfoType.Subscription then
-		return pcall(MarketplaceService.GetUserSubscriptionStatusAsync, MarketplaceService, player)
+		return pcall(MarketplaceService.GetUserSubscriptionStatusAsync, MarketplaceService, player, key::any)
 	elseif type == Enum.MembershipType.Premium then
 		return true, player.MembershipType == type::Enum.MembershipType
 	else
@@ -172,17 +172,17 @@ function patronage.productpromptpurchase(p: typeof(patronage.createproduct(...))
 	local key = p.key
 
 	if type == Enum.InfoType.Asset then
-		return pcall(MarketplaceService.PromptPurchase, MarketplaceService, player, key)
+		return pcall(MarketplaceService.PromptPurchase, MarketplaceService, player, key::any)
 	elseif type == Enum.InfoType.Bundle then
-		return pcall(MarketplaceService.PromptBundlePurchase, MarketplaceService, player, key)
+		return pcall(MarketplaceService.PromptBundlePurchase, MarketplaceService, player, key::any)
 	elseif type == Enum.InfoType.GamePass then
-		return pcall(MarketplaceService.PromptGamePassPurchase, MarketplaceService, player, key)
+		return pcall(MarketplaceService.PromptGamePassPurchase, MarketplaceService, player, key::any)
 	elseif type == Enum.InfoType.Product then
-		return pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, player, key)
+		return pcall(MarketplaceService.PromptProductPurchase, MarketplaceService, player, key::any)
 	elseif type == Enum.InfoType.Subscription then
-		return pcall(MarketplaceService.PromptSubscriptionPurchase, MarketplaceService, player, key)
+		return pcall(MarketplaceService.PromptSubscriptionPurchase, MarketplaceService, player, key::any)
 	elseif type == Enum.MembershipType.Premium then
-		return pcall(MarketplaceService.PromptPremiumPurchase, player)
+		return pcall(MarketplaceService.PromptPremiumPurchase, MarketplaceService, player)
 	else
 		error(string.format("unaccounted minproduct type (key: %s, type: %s)", tostring(key), type.Name))
 	end
@@ -220,7 +220,7 @@ function patronage.productpurchases(t: {
 
 	return {
 		asset = MarketplaceService.PromptPurchaseFinished:Connect(t.asset);
-		bundle = MarketplaceService.PromptBundlePurchaseFinished:Connect(t.bundle);
+		bundle = MarketplaceService.PromptBundlePurchaseFinished:Connect(t.bundle::any);
 		gamepass = MarketplaceService.PromptGamePassPurchaseFinished:Connect(t.gamepass);
 		receipt = t.product;
 		subscription = Players.UserSubscriptionStatusChanged:Connect(t.subscription);

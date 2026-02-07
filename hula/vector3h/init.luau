@@ -74,7 +74,7 @@ end
 function vector3h.bezier(vectors: {Vector3}, a: number)
 	local len = #vectors
 	if len > 1 then
-		local result = table.create(len)
+		local result = table.create(len)::{Vector3}
 		for i, v in ipairs(vectors) do
 			local w = vectors[i + 1]
 			if not w then break end
@@ -95,7 +95,7 @@ function vector3h.split(v: Vector3, w: Vector3, u: number)
 	if u < 3 then
 		return {v, w}
 	else
-		local result = table.create(u)
+		local result = table.create(u)::{Vector3}
 		table.insert(result, v)
 		
 		for i = 1, u - 1 do
@@ -393,7 +393,7 @@ end
 function vector3h.createwheel(len: number, initialangle: number?)
 	local c = {
 		pointer = vector.create(0, 0, 0);
-		vectors = table.create(len);
+		vectors = table.create(len)::{vector};
 	}
 
 	local step = (2 * math.pi) / len

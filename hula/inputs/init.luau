@@ -145,7 +145,8 @@ end
 --- calls `GamepadService:EnableGamepadCursor(target)` or `GamepadService:DisableGamepadCursor()` depending on state
 function inputs.setgamepadcursorstate(state: boolean, target: GuiObject?)
 	if state == true then
-		GamepadService:EnableGamepadCursor(target)
+		--- "Please note that in order to set the cursor to the default position, nil must be passed in as a parameter."
+		GamepadService:EnableGamepadCursor(target or nil::any)
 	else
 		GamepadService:DisableGamepadCursor()
 	end
