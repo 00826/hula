@@ -236,6 +236,23 @@ end
 --- returns an intersection of all tables passed, in order
 tableh.intersect = intersect
 
+--- reverses range of table, starting at `i (?=1)` and ending at `j (?=#t)`
+function tableh.reverse<T>(t: {T}, i: number?, j: number?)
+	i = i or 1
+	j = j or #t
+
+	if i < j then
+		local a = t[i]
+		local b = t[j]
+		t[i] = b
+		t[j] = a
+		
+		tableh.reverse(t, i + 1, j - 1)
+	else
+		return
+	end
+end
+
 --- returns a deep copy of table
 function tableh.deepcopy(t: {[any]: any}): {[any]: any}
 	local copy = {}
