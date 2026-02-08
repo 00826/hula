@@ -1,7 +1,7 @@
 --!strict
 
 local RunService = game:GetService("RunService")
-local IsServer = RunService:IsServer()
+local isserver = RunService:IsServer()
 
 local InsertService = game:GetService("InsertService")
 local PhysicsService = game:GetService("PhysicsService")
@@ -843,7 +843,7 @@ end
 
 --- bulk register-and-set-collidable `PhysicsService` collision groups
 function instanceh.collisiongroupbulksetcollidable(t: {[string]: {[string]: boolean}})
-	assert(IsServer, "instanceh.registercollisiongroups() can only be called on server")
+	assert(isserver, "instanceh.registercollisiongroups() can only be called on server")
 
 	--- "both collision groups must be registered"
 	for name in t do
@@ -1272,7 +1272,7 @@ function instanceh.createaccessory(assetid: number?)
 		return accessorypart::BasePart
 	end
 
-	assert(IsServer, "instanceh.createaccessory() can only be called on server (InsertService limitation T__T)")
+	assert(isserver, "instanceh.createaccessory() can only be called on server (InsertService limitation T__T)")
 	local asset = InsertService:LoadAsset(assetid)
 
 	local accessory = asset:FindFirstChildOfClass("Accessory")

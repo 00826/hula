@@ -1,7 +1,7 @@
 --!strict
 
 local RunService = game:GetService("RunService")
-local IsServer = RunService:IsServer()
+local isserver = RunService:IsServer()
 
 local AvatarEditorService = game:GetService("AvatarEditorService")
 local GroupService = game:GetService("GroupService")
@@ -315,14 +315,14 @@ function patronage.policyinfo(player: Player): (boolean, {
 	IsPaidItemTradingAllowed: boolean;
 	IsSubjectToChinaPolicies: boolean;
 }?)
-	assert(IsServer, "patronage.policyinfo can only be called on server")
+	assert(isserver, "patronage.policyinfo can only be called on server")
 
 	return pcall(PolicyService.GetPolicyInfoForPlayerAsync, PolicyService, player)
 end
 
 --- returns `pcall(LocalizationService.GetCountryRegionForPlayerAsync, LocalizationService, player)`
 function patronage.regioncode(player: Player)
-	assert(IsServer, "patronage.regioncode can only be called on server")
+	assert(isserver, "patronage.regioncode can only be called on server")
 	
 	return pcall(LocalizationService.GetCountryRegionForPlayerAsync, LocalizationService, player)
 end

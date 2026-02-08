@@ -213,6 +213,29 @@ function tableh.booknext(b: typeof(tableh.createbook(...)), delta: number)
 	), oldoffset, newoffset, numpages
 end
 
+type function pack_intersection_function(f: type)
+	return types.intersectionof(unpack(f:parameters().head or {}))
+end
+
+type pack_intersection<T...> = pack_intersection_function<(T...) -> ()>
+
+local function intersect<T...>(...: T...): pack_intersection<T...>
+	local newentity = {}
+
+	for _, layer in ipairs{...} do
+		if type(layer) == "table" then
+			for key, value in layer do
+				newentity[key] = value
+			end
+		end
+	end
+
+	return newentity::any
+end
+
+--- returns an intersection of all tables passed, in order
+tableh.intersect = intersect
+
 --- returns a deep copy of table
 function tableh.deepcopy(t: {[any]: any}): {[any]: any}
 	local copy = {}

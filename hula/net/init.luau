@@ -2,7 +2,7 @@
 --!native
 
 local RunService = game:GetService("RunService")
-local IsServer = RunService:IsServer()
+local isserver = RunService:IsServer()
 
 local Players = game:GetService("Players")
 
@@ -58,7 +58,7 @@ end
 local function resolveremote(b: buffer, i: {Instance}): RemoteEvent|UnreliableRemoteEvent
 	local len = 1 + buffer.len(b) + (#i * 5)
 	
-	if IsServer then
+	if isserver then
 		if len > 127 then
 			len += 13
 		else
@@ -140,7 +140,7 @@ function net.port(key: string)
 
 		--- look for ship
 		if not table.find(net.ships, key) then
-			if IsServer then
+			if isserver then
 				--- make one
 				assert(#net.ships <= 2^8-1, "net at max ships (u8 limit)")
 				table.insert(net.ships, key)
@@ -186,7 +186,7 @@ function net.port(key: string)
 		--- ... `C[1] = RemoteEvent.On[Client/Server]Event` \
 		--- ... `C[2] = UnreliableRemoteEvent.On[Client/Server]Event` 
 		port.connect = function(f: ((value: any) -> ()) & (player: Player, value: any) -> ())
-			if IsServer then
+			if isserver then
 				local function serverrecv(player: Player, s: buffer, i: {Instance})
 					--- resolve ship
 					local ship = table.find(net.ships, key)
@@ -738,7 +738,7 @@ function net.hook(key: string)
 			table.clear(hook.onces)
 			
 			table.clear(hook)
-			net.hooks[key] = nil
+			;(net.hooks::any)[key] = nil
 		end
 
 		net.hooks[key] = hook
@@ -943,12 +943,12 @@ function net.timestamp(time: number, format: "hour" | "halfday" | "day" | "week"
 		end
 	end
 
-	timestamp.change = os.time(nextdatetable) - os.time(datetable)
+	timestamp.change = os.time(nextdatetable::any) - os.time(datetable::any)
 
 	return timestamp
 end
 
-if IsServer then
+if isserver then
 	do --- flush queue
 		local function flush(queue: {any})
 			local entry = table.remove(queue, 1)

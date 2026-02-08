@@ -10,98 +10,119 @@ local function tween(object: Instance, properties: {[string]: any}, time: number
 	TweenService:Create(object, TweenInfo.new(time, style or Enum.EasingStyle.Linear, ...), properties):Play()
 end
 
-local function cartesian(p: number, w: number)
-	p -= 1
-	return p // w, p % w
-end
+--- type describing guiobject appearance properties
+export type appearance = {
+	--- `?=color3.fromrgb(255, 255, 255)`
+	backgroundcolor: Color3?;
+	--- `?=1`
+	backgroundtransparency: number?;
+	--- `?=0`
+	bordersizepixel: number?;
+	--- `?=1`
+	zindex: number?;
+}
 
---- returns point along bezier curve `u` at interpolant `a`
-local function bezier(u: {UDim2}, a: number)
-	local len = #u
-	if len > 1 then
-		local newpoints = table.create(len) :: {UDim2}
-		for i, v in ipairs(u) do
-			local w = u[i + 1]
-			if not w then break end
+--- type describing guiobject position & rotation properties
+export type alignment = {
+	--- `?=vector2.new(0, 0)`
+	anchorpoint: Vector2?;
+	--- `?=udim2.fromscale(0, 0)`
+	position: UDim2?;
+	--- `?=udim2.fromoffset(64, 64)`
+	size: UDim2?;
+	--- `?=0`
+	rotation: number?;
+	--- `?=0`
+	layoutorder: number?;
+}
 
-			table.insert(newpoints, v:Lerp(w, a))
-		end
+--- type describing uistroke properties
+export type strokeparams = {
+	--- `?=color3.fromrgb(0, 0, 0)`
+	color: Color3?;
+	--- `?=0`
+	transparency: number?;
+	--- `?=1`
+	thickness: number?;
+	--- `?=bevel`
+	linejoinmode: Enum.LineJoinMode?;
+	--- `?=contextual`
+	applystrokemode: Enum.ApplyStrokeMode?;
+	borderoffset: UDim?;
+}
 
-		return bezier(newpoints, a)
-	else
-		return u[1]
-	end
-end
+--- type describing uilayoutobject properties
+export type layout = {
+	--- `?=4`
+	padding: number?;
+	--- `?=center`
+	horizontalalignment: Enum.HorizontalAlignment?;
+	--- `?=center`
+	verticalalignment: Enum.VerticalAlignment?;
+	--- `?=horizontal`
+	filldirection: Enum.FillDirection?;
+	--- `?=layoutorder`
+	sortorder: Enum.SortOrder?;
+}
 
---- ### gui.luau
----
---- UDim, UDim2, Vector2 library extensions \
---- ui helper functions
-local gui = {
-	UDim = {
-		zero = UDim.new(0, 0);
+--- type describing uigridlayout properties
+export type gridparams = {
+	width: number;
+	height: number;
+} & layout
 
-		--- returns `UDim.new(w, w)`
-		fromconstant = function(w: number)
-			return UDim.new(w, w)
-		end;
-	};
-	UDim2 = {
-		zero = UDim2.fromScale(0, 0);
-		half = UDim2.fromScale(0.5, 0.5);
+--- type describing uilistlayout properties
+export type listparams = {
 
-		onescale = UDim2.fromScale(1, 1);
-		xscale = UDim2.fromScale(1, 0);
-		yscale = UDim2.fromScale(0, 1);
+} & layout
 
-		oneoffset = UDim2.fromOffset(1, 1);
-		xoffset = UDim2.fromOffset(1, 0);
-		yoffset = UDim2.fromOffset(0, 1);
+--- type describing textlabel properties
+export type textparams = {
+	--- `?=arimo`
+	font: Enum.Font?;
+	--- `?=color3.fromrgb(255, 255, 255)`
+	textcolor: Color3?;
+	--- `?=color3.fromrgb(0, 0, 0)`
+	textstrokecolor: Color3?;
+	--- `?=0`
+	textstroketransparency: number?;
+	--- `?=center`
+	textxalignment: Enum.TextXAlignment?;
+	--- `?=center`
+	textyalignment: Enum.TextYAlignment?;
+}
 
-		--- returns `UDim2.fromScale(v, v)`
-		fromscale = function(v: number)
-			return UDim2.fromScale(v, v)
-		end;
-		--- returns `UDim2.fromOffset(v, v)`
-		fromoffset = function(v: number)
-			return UDim2.fromOffset(v, v)
-		end;
-		--- returns `UDim2.fromOffset(v.X, v.Y)`
-		fromvector = function(v: Vector2|Vector3)
-			return UDim2.fromOffset(v.X, v.Y)
-		end;
-		
-		bezier = bezier;
-	};
-	Vector2 = {
-		half = Vector2.new(0.5, 0.5);
+--- type describing imagelabel properties
+export type imageparams = {
+	--- `?=content.none`
+	imagecontent: Content?;
+	--- `?=color3.fromrgb(255, 255, 255)`
+	imagecolor: Color3?;
+	--- `?=0`
+	imagetransparency: number?;
+	--- `?=default`
+	resamplemode: Enum.ResamplerMode?;
+	--- `?=stretch`
+	scaletype: Enum.ScaleType?;
+}
 
-		--- returns `Vector2.new(w, w)`
-		fromconstant = function(w: number)
-			return Vector2.new(w, w)
-		end;
-		--- returns `UDim2.fromOffset(u.X.Offset, u.Y.Offset)`
-		fromudim2 = function(u: UDim2)
-			return UDim2.fromOffset(u.X.Offset, u.Y.Offset)
-		end;
-		--- returns square at `vec` with `size` clamped within `bounds`
-		clamp = function(vec: Vector2, size: Vector2, bounds: Vector2)
-			local delta = (vec + size) - bounds
+--- type describing tree constructor
+export type tree = {
+	parent: Instance?;
+	name: string?;
+	instance: Instance?;
+	contains: { tree }?;
+}
 
-			if delta.X > 0 then
-				vec -= Vector2.xAxis * delta.X
-			end
-			if delta.Y > 0 then
-				vec -= Vector2.yAxis * delta.Y
-			end
-
-			return vec
-		end;
-	};
+--- type describing tree return result
+export type treeresult = {
+	instance: Instance?;
+	name: string?;
+	contains: { treeresult }
 }
 
 type getcore = 
-	((parameter: "PointsNotificationsActive") -> boolean)
+&	((parameter: "PointsNotificationsActive") -> boolean)
 &	((parameter: "BadgesNotificationsActive") -> boolean)
 &	((parameter: "AvatarContextMenuEnabled") -> boolean)
 &	((parameter: "ChatActive") -> boolean)
@@ -118,15 +139,8 @@ type getcore =
 &	((parameter: "DevConsoleVisible") -> boolean)
 &	((parameter: "VRRotationIntensity") -> "Low" | "High" | "Smooth")
 
-local getcore: getcore = function(parameter)
-	return StarterGui:GetCore(parameter)
-end
-
---- returns `StarterGui:GetCore(parameter)`
-gui.getcore = getcore
-
 type setcore =
-	((parameter: "ChatActive", variant: boolean) -> ())
+&	((parameter: "ChatActive", variant: boolean) -> ())
 &	((parameter: "PointsNotificationsActive", variant: boolean) -> ())
 &	((parameter: "BadgesNotificationsActive", variant: boolean) -> ())
 &	((parameter: "ResetButtonCallback", variant: boolean|BindableEvent) -> ())
@@ -167,6 +181,325 @@ type setcore =
 		Font: Enum.Font;
 	}) -> ())
 
+type thumbnailsize_150 = "150x150"
+type thumbnailsize_150_420 = "150x150"|"420x420"
+
+--- type assetthumbnailsizes = "150x150"|"420x420"
+type avatarthumbnailsizes = "48x48"|"60x60"|"100x100"|"150x150"|"180x180"|"352x352"|"420x420"|"720x720"
+type avatarbustthumbnailsizes = "50x50"|"60x60"|"75x75"|"100x100"|"150x150"|"180x180"|"352x352"|"420x420"
+type avatarheadshotthumbnailsizes = "48x48"|"60x60"|"100x100"|"150x150"|"180x180"|"352x352"|"420x420"
+--- type badgeiconthumbnailsizes = "150x150"
+--- type bundlethumbnailthumbnailsizes = "150x150"|"420x420"
+type fontfamilythumbnailsizes = "1200x80"
+type gameiconthumbnailsizes = "50x50"|"150x150"
+--- type gamepassthumbnailsizes = "150x150"
+type gamethumbnailthumbnailsizes = "256x144"|"384x216"|"480x270"|"576x324"|"768x432"
+--- type groupiconthumbnailsizes = "150x150"|"420x420"
+--- type outfitthumbnailsizes = "150x150"|"420x420"
+
+type rbxthumb =
+&	((thumbnailtype: "Asset", id: number, size: thumbnailsize_150_420) -> string)
+&	((thumbnailtype: "Avatar", id: number, size: avatarthumbnailsizes) -> string)
+&	((thumbnailtype: "AvatarBust", id: number, size: avatarbustthumbnailsizes) -> string)
+&	((thumbnailtype: "AvatarHeadShot", id: number, size: avatarheadshotthumbnailsizes) -> string)
+&	((thumbnailtype: "BadgeIcon", id: number, size: thumbnailsize_150) -> string)
+&	((thumbnailtype: "BundleThumbnail", id: number, size: thumbnailsize_150_420) -> string)
+&	((thumbnailtype: "FontFamily", id: number, size: fontfamilythumbnailsizes) -> string)
+&	((thumbnailtype: "GameIcon", id: number, size: gameiconthumbnailsizes) -> string)
+&	((thumbnailtype: "GamePass", id: number, size: thumbnailsize_150) -> string)
+&	((thumbnailtype: "GameThumbnail", id: number, size: gamethumbnailthumbnailsizes) -> string)
+&	((thumbnailtype: "GroupIcon", id: number, size: thumbnailsize_150_420) -> string)
+&	((thumbnailtype: "Outfit", id: number, size: thumbnailsize_150_420) -> string)
+
+export type buttonfunctions = {
+	--- `MouseButton1Down`
+	clickdown: (x: number, y: number) -> ()?;
+	--- `MouseButton1Up`
+	clickup: (x: number, y: number) -> ()?;
+	--- `MouseButton2Down`
+	rclickdown: (x: number, y: number) -> ()?;
+	--- `MouseButton2Up`
+	rclickup: (x: number, y: number) -> ()?;
+	--- `MouseEnter` \
+	--- `SelectionGained`
+	enter: (x: number, y: number) -> ()?;
+	--- `MouseLeave` \
+	--- `SelectionLost`
+	leave: (x: number, y: number) -> ()?;
+	--- `MouseMoved`
+	move: (x: number, y: number) -> ()?;
+	--- `MouseWheelForward`
+	scrollup: (x: number, y: number) -> ()?;
+	--- `MouseWheelBackward`
+	scrolldown: (x: number, y: number) -> ()?;
+}
+
+--- ### gui.luau
+---
+--- ui helper functions
+local gui = {
+	alignments = {
+		topleft = { anchorpoint = Vector2.new(0, 0); position = UDim2.fromScale(0, 0); };
+		top = { anchorpoint = Vector2.new(0.5, 0); position = UDim2.fromScale(0.5, 0); };
+		topright = { anchorpoint = Vector2.new(1, 0); position = UDim2.fromScale(1, 0); };
+
+		centerleft = { anchorpoint = Vector2.new(0, 0.5); position = UDim2.fromScale(0, 0.5); };
+		center = { anchorpoint = Vector2.new(0.5, 0.5); position = UDim2.fromScale(0.5, 0.5); };
+		centerright = { anchorpoint = Vector2.new(1, 0.5); position = UDim2.fromScale(1, 0.5); };
+
+		bottomleft = { anchorpoint = Vector2.new(0, 1); position = UDim2.fromScale(0, 1); };
+		bottom = { anchorpoint = Vector2.new(0.5, 1); position = UDim2.fromScale(0.5, 1); };
+		bottomright = { anchorpoint = Vector2.new(1, 1); position = UDim2.fromScale(1, 1); };
+	};
+}
+
+--- applies uiaspectratioconstraint to guiobject \
+--- searches for preexisting before instantiating a new one
+function gui.uiaspectratioconstraint(guiobject: GuiObject, aspectratio: number)
+	local preexisting = guiobject:FindFirstChildWhichIsA("UIAspectRatioConstraint")
+	if preexisting then
+		preexisting.AspectRatio = aspectratio
+
+		return preexisting
+	else
+		local uiaspectratioconstraint = Instance.new("UIAspectRatioConstraint")
+		uiaspectratioconstraint.AspectRatio = aspectratio
+		uiaspectratioconstraint.Parent = guiobject
+
+		return uiaspectratioconstraint
+	end
+end
+
+--- applies uicorner to guiobject \
+--- searches for preexisting before instantiating a new one
+function gui.uicorner(guiobject: GuiObject, cornerradius: UDim)
+	local preexisting = guiobject:FindFirstChildWhichIsA("UICorner")
+	if preexisting then
+		preexisting.CornerRadius = cornerradius
+
+		return preexisting
+	else
+		local uicorner = Instance.new("UICorner")
+		uicorner.CornerRadius = cornerradius
+		uicorner.Parent = guiobject
+
+		return uicorner
+	end
+end
+
+--- applies uigridlayout to guiobject \
+--- searches for preexisting before instantiating a new one
+function gui.uigridlayout(guiobject: GuiObject, params: gridparams)
+	local padding = params.padding or 4
+	local cellpadding = UDim2.fromOffset(padding, padding)
+	local cellsize = UDim2.fromScale(1/params.width, 1/params.height) - cellpadding
+
+	local preexisting = guiobject:FindFirstChildWhichIsA("UIGridLayout")
+	if preexisting then
+		preexisting.CellPadding = cellpadding
+		preexisting.CellSize = cellsize
+		preexisting.FillDirectionMaxCells = params.width
+		preexisting.HorizontalAlignment = params.horizontalalignment or Enum.HorizontalAlignment.Center
+		preexisting.VerticalAlignment = params.verticalalignment or Enum.VerticalAlignment.Center
+		preexisting.FillDirection = params.filldirection or Enum.FillDirection.Horizontal
+		preexisting.SortOrder = params.sortorder or Enum.SortOrder.LayoutOrder
+
+		return preexisting
+	else
+		local uigridlayout = Instance.new("UIGridLayout")
+		uigridlayout.CellPadding = cellpadding
+		uigridlayout.CellSize = cellsize
+		uigridlayout.FillDirectionMaxCells = params.width
+		uigridlayout.HorizontalAlignment = params.horizontalalignment or Enum.HorizontalAlignment.Center
+		uigridlayout.VerticalAlignment = params.verticalalignment or Enum.VerticalAlignment.Center
+		uigridlayout.FillDirection = params.filldirection or Enum.FillDirection.Horizontal
+		uigridlayout.SortOrder = params.sortorder or Enum.SortOrder.LayoutOrder
+
+		uigridlayout.Parent = guiobject
+
+		return uigridlayout
+	end
+end
+
+--- applies uilistlayout to guiobject \
+--- searches for preexisting before instantiating a new one
+function gui.uilistlayout(guiobject: GuiObject, params: listparams)
+	local preexisting = guiobject:FindFirstChildWhichIsA("UIListLayout")
+	if preexisting then
+		preexisting.HorizontalAlignment = params.horizontalalignment or Enum.HorizontalAlignment.Center
+		preexisting.VerticalAlignment = params.verticalalignment or Enum.VerticalAlignment.Center
+		preexisting.FillDirection = params.filldirection or Enum.FillDirection.Horizontal
+		preexisting.SortOrder = params.sortorder or Enum.SortOrder.LayoutOrder
+
+		return preexisting
+	else
+		local uilistlayout = Instance.new("UIListLayout")
+		uilistlayout.Padding = UDim.new(0, params.padding or 4)
+		uilistlayout.HorizontalAlignment = params.horizontalalignment or Enum.HorizontalAlignment.Center
+		uilistlayout.VerticalAlignment = params.verticalalignment or Enum.VerticalAlignment.Center
+		uilistlayout.FillDirection = params.filldirection or Enum.FillDirection.Horizontal
+		uilistlayout.SortOrder = params.sortorder or Enum.SortOrder.LayoutOrder
+
+		uilistlayout.Parent = guiobject
+
+		return uilistlayout
+	end
+end
+
+--- applies uipadding to guiobject \
+--- searches for preexisting before instantiating a new one
+function gui.uipadding(guiobject: GuiObject, params: { ["top"|"bottom"|"left"|"right"]: UDim })
+	local preexisting = guiobject:FindFirstChildWhichIsA("UIPadding")
+	if preexisting then
+		preexisting.PaddingTop = params.top
+		preexisting.PaddingBottom = params.bottom
+		preexisting.PaddingLeft = params.left
+		preexisting.PaddingRight = params.right
+
+		return preexisting
+	else
+		local uipadding = Instance.new("UIPadding")
+		uipadding.PaddingTop = params.top
+		uipadding.PaddingBottom = params.bottom
+		uipadding.PaddingLeft = params.left
+		uipadding.PaddingRight = params.right
+		
+		uipadding.Parent = guiobject
+
+		return uipadding
+	end
+end
+
+--- applies uistroke to guiobject
+function gui.uistroke(guiobject: GuiObject, params: strokeparams)
+	local uistroke = Instance.new("UIStroke")
+	uistroke.Color = params.color or Color3.fromRGB(0, 0, 0)
+	uistroke.ApplyStrokeMode = params.applystrokemode or Enum.ApplyStrokeMode.Contextual
+	uistroke.LineJoinMode = params.linejoinmode or Enum.LineJoinMode.Bevel
+	uistroke.Thickness = params.thickness or 1
+	uistroke.Transparency = params.transparency or 0
+	uistroke.BorderOffset = params.borderoffset or UDim.new(0, 0)
+
+	uistroke.Parent = guiobject
+
+	return uistroke
+end
+
+function gui.setappearance(guiobject: GuiObject, appearance: appearance)
+	guiobject.BackgroundColor3 = appearance.backgroundcolor or Color3.fromRGB(255, 255, 255)
+	guiobject.BackgroundTransparency = appearance.backgroundtransparency or 1
+	guiobject.BorderSizePixel = appearance.bordersizepixel or 0
+	guiobject.ZIndex = appearance.zindex or 1
+end
+
+function gui.setalignment(guiobject: GuiObject, alignment: alignment)
+	guiobject.AnchorPoint = alignment.anchorpoint or Vector2.new(0, 0)
+	guiobject.Position = alignment.position or UDim2.fromScale(0, 0)
+	guiobject.Size = alignment.size or UDim2.fromOffset(64, 64)
+	guiobject.Rotation = alignment.rotation or 0
+end
+
+function gui.setimage(guiimageobject: ImageButton|ImageLabel, imageparams: imageparams)
+	guiimageobject.ImageContent = imageparams.imagecontent or Content.none
+	guiimageobject.ImageColor3 = imageparams.imagecolor or Color3.fromRGB(255, 255, 255)
+	guiimageobject.ImageTransparency = imageparams.imagetransparency or 0
+	guiimageobject.ResampleMode = imageparams.resamplemode or Enum.ResamplerMode.Default
+	guiimageobject.ScaleType = imageparams.scaletype or Enum.ScaleType.Stretch
+end
+
+--- creates a frame
+function gui.createframe(params: appearance & alignment)
+	local frame = Instance.new("Frame")
+
+	gui.setappearance(frame, params)
+	gui.setalignment(frame, params)
+
+	return frame
+end
+
+--- creates a textlabel
+function gui.createtextlabel(params: appearance & alignment & textparams)
+	local textlabel = Instance.new("TextLabel")
+
+	gui.setappearance(textlabel, params)
+	gui.setalignment(textlabel, params)
+	
+	textlabel.Text = ""
+	textlabel.RichText = true
+	textlabel.TextScaled = false
+
+	textlabel.Font = params.font or Enum.Font.Arimo
+	textlabel.TextColor3 = params.textcolor or Color3.fromRGB(255, 255, 255)
+	textlabel.TextStrokeColor3 = params.textstrokecolor or Color3.fromRGB(0, 0, 0)
+	textlabel.TextStrokeTransparency = params.textstroketransparency or 0
+	textlabel.TextXAlignment = params.textxalignment or Enum.TextXAlignment.Center
+	textlabel.TextYAlignment = params.textyalignment or Enum.TextYAlignment.Center
+
+	return textlabel
+end
+
+--- creates an imagelabel
+function gui.createimagelabel(params: appearance & alignment & imageparams)
+	local imagelabel = Instance.new("ImageLabel")
+
+	gui.setappearance(imagelabel, params)
+	gui.setalignment(imagelabel, params)
+	gui.setimage(imagelabel, params)
+
+	return imagelabel
+end
+
+--- creates a button (textbutton)
+function gui.createbutton(params: appearance & alignment)
+	local textbutton = Instance.new("TextButton")
+
+	gui.setappearance(textbutton, params)
+	gui.setalignment(textbutton, params)
+	
+	textbutton.Text = ""
+	textbutton.RichText = true
+	textbutton.TextScaled = false
+
+	return textbutton
+end
+
+--- creates a tree of instanced guiobjects
+function gui.tree(t: tree)
+	local parent = t.parent
+	local instance = t.instance
+	local contains = t.contains
+	
+	local result: treeresult = {
+		instance = instance;
+		contains = {};
+	}
+
+	if parent and instance then
+		instance.Name = t.name or instance.Name
+		instance.Parent = parent
+
+		result.name = instance.Name
+
+		if contains then
+			for _, thing in ipairs(contains) do
+				thing.parent = instance
+
+				local reentryresult = gui.tree(thing)
+				table.insert(result.contains, reentryresult)
+			end
+		end
+	end
+
+	return result
+end
+
+local getcore: getcore = function(parameter)
+	return StarterGui:GetCore(parameter)
+end
+
+--- returns `StarterGui:GetCore(parameter)`
+gui.getcore = getcore
+
 local setcore: setcore = function(parameter, value)
 	StarterGui:SetCore(parameter)
 end
@@ -174,25 +507,11 @@ end
 --- returns `StarterGui:SetCore(parameter, value)`
 gui.setcore = setcore
 
-type rbxthumb =
-	((type: "Asset", id: number, size: "150x150"|"420x420") -> string)
-&	((type: "Avatar", id: number, size: "48x48"|"60x60"|"100x100"|"150x150"|"180x180"|"352x352"|"420x420"|"720x720") -> string)
-&	((type: "AvatarBust", id: number, size: "50x50"|"60x60"|"75x75"|"100x100"|"150x150"|"180x180"|"352x352"|"420x420") -> string)
-&	((type: "AvatarHeadShot", id: number, size: "48x48"|"60x60"|"100x100"|"150x150"|"180x180"|"352x352"|"420x420") -> string)
-&	((type: "BadgeIcon", id: number, size: "150x150") -> string)
-&	((type: "BundleThumbnail", id: number, size: "150x150"|"420x420") -> string)
-&	((type: "FontFamily", id: number, size: "1200x80") -> string)
-&	((type: "GameIcon", id: number, size: "50x50"|"150x150") -> string)
-&	((type: "GamePass", id: number, size: "150x150") -> string)
-&	((type: "GameThumbnail", id: number, size: "256x144"|"384x216"|"480x270"|"576x324"|"768x432") -> string)
-&	((type: "GroupIcon", id: number, size: "150x150"|"420x420") -> string)
-&	((type: "Outfit", id: number, size: "150x150"|"420x420") -> string)
-
-local rbxthumb: rbxthumb = function(type, id, size)
+local rbxthumb: rbxthumb = function(thumbnailtype, id, size)
 	if id <= 0 then
 		return ""
 	else
-		return string.format("rbxthumb://type=%s&id=%d&w=%s&h=%s", type, id, unpack(string.split(size, "x")))
+		return string.format("rbxthumb://type=%s&id=%d&w=%s&h=%s", thumbnailtype, id, unpack(string.split(size, "x")))
 	end
 end
 
@@ -245,28 +564,7 @@ function gui.textchatmessage(message: string, channel: string?)
 end
 
 --- connects button events to `guibutton`
-function gui.connectbutton(button: GuiButton, functions: {
-	--- `MouseButton1Down`
-	clickdown: (x: number, y: number) -> ()?;
-	--- `MouseButton1Up`
-	clickup: (x: number, y: number) -> ()?;
-	--- `MouseButton2Down`
-	rclickdown: (x: number, y: number) -> ()?;
-	--- `MouseButton2Up`
-	rclickup: (x: number, y: number) -> ()?;
-	--- `MouseEnter` \
-	--- `SelectionGained`
-	enter: (x: number, y: number) -> ()?;
-	--- `MouseLeave` \
-	--- `SelectionLost`
-	leave: (x: number, y: number) -> ()?;
-	--- `MouseMoved`
-	move: (x: number, y: number) -> ()?;
-	--- `MouseWheelForward`
-	scrollup: (x: number, y: number) -> ()?;
-	--- `MouseWheelBackward`
-	scrolldown: (x: number, y: number) -> ()?;
-})
+function gui.connectbutton(button: GuiButton, functions: buttonfunctions)
 	local connections = table.create(11)
 
 	if functions.clickdown then
@@ -310,45 +608,35 @@ function gui.connectbutton(button: GuiButton, functions: {
 	return connections
 end
 
---- applies `sprite` to `imagelabel`
-function gui.sprite(imagelabel: ImageLabel, sprite: typeof(
-	{
-		position = 0;
-		layout = {
-			contentid = (nil::any)::(typeof(Content.none) | string);
-			size = Vector2.zero;
-			width = 0;
-		};
-	})?
-)
-	if not sprite then
+--- applies `sprite` to `imagelabel` \
+--- sprite coordinates are zero-indexed
+function gui.sprite(imagelabel: ImageLabel, sheet: { contentid: number|string|Content; spritesize: Vector2; width: number; offsets: {[string]: Vector2} }?, key: string?)
+	if not sheet or not key then
+		--- reset
 		imagelabel.ImageContent = Content.none
 		imagelabel.ImageRectSize = Vector2.zero
 		imagelabel.ImageRectOffset = Vector2.zero
-
-		return
-	end
-
-	local layout = sprite.layout
-
-	if layout then
-		local content = layout.contentid
-		if type(content) == "number" then
-			imagelabel.ImageContent = Content.fromAssetId(content)
-		elseif type(content) == "string" then
-			imagelabel.ImageContent = Content.fromUri(content)
-		elseif typeof(content) == "Content" then
-			imagelabel.ImageContent = content
-		end
-
-		local x, y = cartesian(sprite.position, layout.width)
-		local size = layout.size
-		imagelabel.ImageRectSize = size
-		imagelabel.ImageRectOffset = Vector2.new(y * size.X, x * size.Y)
 	else
-		imagelabel.ImageContent = Content.none
-		imagelabel.ImageRectSize = Vector2.zero
-		imagelabel.ImageRectOffset = Vector2.zero
+		local offset = sheet.offsets[key]
+		if offset then
+			--- set imagecontent
+			local content = sheet.contentid
+			if type(content) == "number" then
+				imagelabel.ImageContent = Content.fromAssetId(content)
+			elseif type(content) == "string" then
+				imagelabel.ImageContent = Content.fromUri(content)
+			elseif typeof(content) == "Content" then
+				imagelabel.ImageContent = content
+			end
+
+			--- set size n offset
+			local size = sheet.spritesize
+			imagelabel.ImageRectSize = size
+			imagelabel.ImageRectOffset = offset * size
+		else
+			--- recurse-reset
+			gui.sprite(imagelabel, nil, nil)
+		end
 	end
 end
 
@@ -369,150 +657,6 @@ function gui.scrolltext(textlabel: TextLabel, text: string?, speed: number?, gra
 	tween(textlabel, {MaxVisibleGraphemes = text == "" and 0 or len}, time, Enum.EasingStyle.Linear)
 
 	return time
-end
-
---- returns a clone of `template`
-function gui.clone<T>(template: T & GuiObject, name: string?, layoutorder: number?, parent: Instance?): T
-	local clone = template:Clone()
-	clone.Name = name or "_clone"
-	clone.Parent = parent or template.Parent
-	clone.LayoutOrder = layoutorder or 0
-	clone.Visible = true
-
-	return clone
-end
-
---- returns array populated by clones of `template`
-function gui.dupes<T>(template: T & GuiObject, count: number, parent: Instance?): {T}
-	local result = table.create(count)
-	for i = 1, count do
-		local clone = template:Clone()
-		clone.Name = tostring(i)
-		clone.Parent = parent or template.Parent
-		clone.LayoutOrder = i
-		clone.Visible = true
-
-		table.insert(result, clone)
-	end
-
-	return result
-end
-
---- applies column-row-padding layout to optional `uigridlayout(?=nil)` \
---- returns cellpadding, cellsize for convenience
-function gui.grid(columns: number, rows: number, padding: number, uigridlayout: UIGridLayout?)
-	local cellpadding = UDim2.fromOffset(padding, padding)
-	local cellsize = UDim2.new(1/columns, -padding, 1/rows, -padding)
-
-	if uigridlayout then
-		uigridlayout.CellPadding = cellpadding
-		uigridlayout.CellSize = cellsize
-	end
-
-	return cellpadding, cellsize
-end
-
---- creates a textqueue, used for displaying text messages
-function gui.createtextqueue(separator: string, messagelifetime: number, alloc: number)
-	return {
-		queue = table.create(alloc) :: { { text: string, timestamp: number, time: number } };
-		
-		separator = separator;
-		messagelifetime = messagelifetime;
-	}
-end
-
---- inserts text into textqueue \
---- `front(?=false)` text is inserted at the top of the queue
-function gui.textqueueinsert(tq: typeof(gui.createtextqueue(...)), text: string, timestamp: number, time: number?, front: boolean?)
-	if front == true then
-		table.insert(tq.queue, 1, {
-			text = text;
-			timestamp = timestamp;
-			time = time or tq.messagelifetime;
-		})
-	else
-		table.insert(tq.queue, {
-			text = text;
-			timestamp = timestamp;
-			time = time or tq.messagelifetime;
-		})
-	end
-end
-
---- advances textqueue, removing any expired text
-function gui.textqueuestep(tq: typeof(gui.createtextqueue(...)), now: number)
-	local queue = tq.queue
-
-	--- remove expired
-	for i = #queue, 1, -1 do
-		local entry = queue[i]
-
-		if entry.timestamp + entry.time < now then
-			table.remove(queue, i)
-		end
-	end
-
-	local len = #queue
-	if len > 0 then
-		local separator = tq.separator
-		local blob = ""
-
-		for i, entry in ipairs(queue) do
-			local text = entry.text
-			local atlen = i == len
-
-			if atlen then
-				blob ..= text
-			else
-				blob ..= text .. separator
-			end
-		end
-
-		return blob
-	else
-		return ""
-	end
-end
-
---- returns best-fit-for-selection guiobject wrt `thumbstickvector` and currently-selected guiobject
-function gui.nextguiobject(guiobjects: {GuiObject}, thumbstickvector: Vector3, current: GuiObject?): GuiObject?
-	current = current or guiobjects[1]
-	if not current then
-		return nil
-	end
-
-	if not (vector.magnitude(thumbstickvector::any) > 0) then
-		return current
-	end
-
-	local point = current.AbsolutePosition + (current.AbsoluteSize * 0.5)
-
-	local guiobjectswithinangle = table.create(#guiobjects) :: {GuiObject}
-
-	for _, guiobject in guiobjects do
-		if guiobject == current then continue end
-
-		local thispoint = guiobject.AbsolutePosition + (guiobject.AbsoluteSize * 0.5)
-		thispoint -= point
-
-		local dot = vector.dot(thumbstickvector::any, vector.normalize(-Vector3.new(thispoint.X, thispoint.Y, 0)::any))
-		if dot <= 0 then continue end
-
-		table.insert(guiobjectswithinangle, guiobject)
-	end
-
-	table.sort(guiobjectswithinangle, function(a: GuiObject, b: GuiObject)
-		--- vector lib incompatible w vector2
-		--- local dista = vector.magnitude(a.AbsolutePosition::any + (a.AbsoluteSize*0.5) - point)
-		--- local distb = vector.magnitude(b.AbsolutePosition::any + (b.AbsoluteSize*0.5) - point)
-		local dista = (a.AbsolutePosition + (a.AbsoluteSize*0.5) - point).Magnitude
-		local distb = (b.AbsolutePosition + (b.AbsoluteSize*0.5) - point).Magnitude
-		--- 
-		return dista < distb
-	end)
-
-	return guiobjectswithinangle[1] or current
 end
 
 --- returns true if guiobject is actually visible on screen
@@ -556,18 +700,16 @@ function gui.findhovertarget(list: {GuiObject}, insetmouselocation: Vector2): Gu
 		end
 	end
 
-	if #inbounds > 1 then
-		--- sort by distance from center of guiobject
-		table.sort(inbounds, function(a: GuiObject, b: GuiObject)
-			--- vector lib incompatible w vector2
-			--- local dista = vector.magnitude(a.AbsolutePosition::any + (a.AbsoluteSize*0.5) - insetmouselocation)
-			--- local distb = vector.magnitude(b.AbsolutePosition::any + (b.AbsoluteSize*0.5) - insetmouselocation)
-			local dista = (a.AbsolutePosition + (a.AbsoluteSize*0.5) - insetmouselocation).Magnitude
-			local distb = (b.AbsolutePosition + (b.AbsoluteSize*0.5) - insetmouselocation).Magnitude
+	--- sort by distance from center of guiobject
+	table.sort(inbounds, function(a: GuiObject, b: GuiObject)
+		--- vector lib incompatible w vector2
+		--- local dista = vector.magnitude(a.AbsolutePosition::any + (a.AbsoluteSize*0.5) - insetmouselocation)
+		--- local distb = vector.magnitude(b.AbsolutePosition::any + (b.AbsoluteSize*0.5) - insetmouselocation)
+		local dista = (a.AbsolutePosition + (a.AbsoluteSize*0.5) - insetmouselocation).Magnitude
+		local distb = (b.AbsolutePosition + (b.AbsoluteSize*0.5) - insetmouselocation).Magnitude
 
-			return dista < distb
-		end)
-	end
+		return dista < distb
+	end)
 	
 	return inbounds[1]
 end
