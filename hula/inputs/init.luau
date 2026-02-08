@@ -87,6 +87,16 @@ function inputs.ended()
 	return UserInputService.InputEnded
 end
 
+--- returns `UserInputService.TouchEnabled`
+function inputs.readtouchenabled()
+	return UserInputService.TouchEnabled
+end
+
+--- returns `UserInputService.TouchTapInWorld`
+function inputs.touchtapinworld()
+	return UserInputService.TouchTapInWorld
+end
+
 --- returns `UserInputService.LasInputTypeChanged`
 function inputs.lastinputtypechanged()
 	return UserInputService.LastInputTypeChanged
@@ -97,71 +107,6 @@ function inputs.preferredinputchanged()
 	return script:GetAttributeChangedSignal(inputs.preferredinputflag)
 end
 
---- returns `UserInputService:GetMouseLocation()`
-function inputs.mouselocation()
-	return UserInputService:GetMouseLocation()
-end
-
---- returns `UserInputService.MouseBehavior`
-function inputs.mousebehavior()
-	return UserInputService.MouseBehavior
-end
-
---- equivalent to `UserInputService.MouseBehavior = mousebehavior`
-function inputs.setmousebehavior(mousebehavior: Enum.MouseBehavior)
-	UserInputService.MouseBehavior = mousebehavior
-end
-
---- returns `UserInputService.MouseIcon`
-function inputs.mouseicon()
-	return UserInputService.MouseIcon
-end
-
---- equivalent to `UserInputService.MouseIcon = icon or ""`
-function inputs.setmouseicon(icon: string?)
-	UserInputService.MouseIcon = icon or ""
-end
-
---- returns `UserInputService.MouseIconEnabled`
-function inputs.mouseiconenabled()
-	return UserInputService.MouseIconEnabled
-end
-
---- equivalent to `UserInputService.MouseIconEnabled = enabled`
-function inputs.setmouseiconenabled(enabled: boolean)
-	UserInputService.MouseIconEnabled = enabled
-end
-
---- returns `UserInputService.TouchTapInWorld`
-function inputs.touchtapinworld()
-	return UserInputService.TouchTapInWorld
-end
-
---- returns `UserInputService.TouchEnabled`
-function inputs.touchenabled()
-	return UserInputService.TouchEnabled
-end
-
---- calls `GamepadService:EnableGamepadCursor(target)` or `GamepadService:DisableGamepadCursor()` depending on state
-function inputs.setgamepadcursorstate(state: boolean, target: GuiObject?)
-	if state == true then
-		--- "Please note that in order to set the cursor to the default position, nil must be passed in as a parameter."
-		GamepadService:EnableGamepadCursor(target or nil::any)
-	else
-		GamepadService:DisableGamepadCursor()
-	end
-end
-
---- returns `GamepadService.GamepadCursorEnabled`
-function inputs.gamepadcursorenabled()
-	return GamepadService.GamepadCursorEnabled
-end
-
---- returns `GamepadService:GetPropertyChangedSignal("GamepadCursorEnabled")`
-function inputs.gamepadcursorstatechanged()
-	return GamepadService:GetPropertyChangedSignal("GamepadCursorEnabled")
-end
-
 --- returns `GuiService.MenuOpened`
 function inputs.menuopened()
 	return GuiService.MenuOpened
@@ -170,6 +115,62 @@ end
 --- returns `GuiService.MenuClosed`
 function inputs.menuclosed()
 	return GuiService.MenuClosed
+end
+
+--- returns `UserInputService:GetMouseLocation()`
+function inputs.readmouselocation()
+	return UserInputService:GetMouseLocation()
+end
+
+--- returns `UserInputService.MouseBehavior`
+function inputs.readmousebehavior()
+	return UserInputService.MouseBehavior
+end
+
+--- equivalent to `UserInputService.MouseBehavior = mousebehavior`
+function inputs.writemousebehavior(mousebehavior: Enum.MouseBehavior)
+	UserInputService.MouseBehavior = mousebehavior
+end
+
+--- returns `UserInputService.MouseIcon`
+function inputs.readmouseicon()
+	return UserInputService.MouseIcon
+end
+
+--- equivalent to `UserInputService.MouseIcon = icon or ""`
+function inputs.writemouseicon(icon: string?)
+	UserInputService.MouseIcon = icon or ""
+end
+
+--- returns `UserInputService.MouseIconEnabled`
+function inputs.readmouseiconenabled()
+	return UserInputService.MouseIconEnabled
+end
+
+--- equivalent to `UserInputService.MouseIconEnabled = enabled`
+function inputs.writemouseiconenabled(enabled: boolean)
+	UserInputService.MouseIconEnabled = enabled
+end
+
+--- returns `GamepadService.GamepadCursorEnabled`
+function inputs.readgamepadcursorenabled()
+	return GamepadService.GamepadCursorEnabled
+end
+
+--- `state == true`: `GamepadService:EnableGamepadCursor(target or nil)` \
+--- `state == false`: `GamepadService:DisableGamepadCursor()`
+function inputs.writegamepadcursorenabled(state: boolean, target: GuiObject?)
+	if state == true then
+		--- "Please note that in order to set the cursor to the default position, nil must be passed in as a parameter."
+		GamepadService:EnableGamepadCursor(target or nil::any)
+	else
+		GamepadService:DisableGamepadCursor()
+	end
+end
+
+--- returns `GamepadService:GetPropertyChangedSignal("GamepadCursorEnabled")`
+function inputs.gamepadcursorstatechanged()
+	return GamepadService:GetPropertyChangedSignal("GamepadCursorEnabled")
 end
 
 --- returns `origin`, `direction`, and `raycastresult` of `camera:ScreenPointToRay(point.X, point.Y)`

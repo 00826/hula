@@ -6,6 +6,9 @@ local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
+local colorsequencewhite = ColorSequence.new(Color3.fromRGB(255, 255, 255))
+local numbersequencezero = NumberSequence.new(0)
+
 local function tween(object: Instance, properties: {[string]: any}, time: number, style: Enum.EasingStyle?, ...)
 	TweenService:Create(object, TweenInfo.new(time, style or Enum.EasingStyle.Linear, ...), properties):Play()
 end
@@ -48,6 +51,7 @@ export type strokeparams = {
 	linejoinmode: Enum.LineJoinMode?;
 	--- `?=contextual`
 	applystrokemode: Enum.ApplyStrokeMode?;
+	--- `?=udim.new(0, 0)`
 	borderoffset: UDim?;
 }
 
@@ -65,6 +69,20 @@ export type layout = {
 	sortorder: Enum.SortOrder?;
 }
 
+--- type describing uigradient properties
+export type gradientparams = {
+	--- `?=colorsequence.new(color3.fromrgb(255, 255, 255))`
+	color: ColorSequence?;
+	--- `?=enabled ~= nil and enabled or true`
+	enabled: boolean?;
+	--- `?=vector2.zero`
+	offset: Vector2?;
+	--- `?=0`
+	rotation: number?;
+	--- `?=numbersequence.new(0)`
+	transparency: NumberSequence?;
+}
+
 --- type describing uigridlayout properties
 export type gridparams = {
 	width: number;
@@ -78,6 +96,10 @@ export type listparams = {
 
 --- type describing textlabel properties
 export type textparams = {
+	--- `?=richtext ~= nil and richtext or true`
+	richtext: boolean?;
+	--- `?=textscaled ~= nil and textscaled or true`
+	textscaled: boolean?;
 	--- `?=arimo`
 	font: Enum.Font?;
 	--- `?=color3.fromrgb(255, 255, 255)`
@@ -104,6 +126,22 @@ export type imageparams = {
 	resamplemode: Enum.ResamplerMode?;
 	--- `?=stretch`
 	scaletype: Enum.ScaleType?;
+}
+
+--- type describing viewportframe properties
+export type viewportparams = {
+	--- `?=color3.fromrgb(255, 255, 255)`
+	lightcolor: Color3?;
+	--- `?=vector3.new(-0.707, -1, 0.707)`
+	lightdirection: Vector3?;
+	--- `?=color3.fromrgb(148, 148, 148)`
+	ambient: Color3?;
+	--- `?=nil`
+	currentcamera: Camera?;
+	--- `?=color3.fromrgb(255, 255, 255)`
+	imagecolor: Color3?;
+	--- `?=0`
+	imagetransparency: number?;
 }
 
 --- type describing tree constructor
@@ -238,20 +276,76 @@ export type buttonfunctions = {
 ---
 --- ui helper functions
 local gui = {
+	--- shorthand `gui.setalignment()` alignments
 	alignments = {
-		topleft = { anchorpoint = Vector2.new(0, 0); position = UDim2.fromScale(0, 0); };
+		topleft = { anchorpoint = Vector2.zero; position = UDim2.fromScale(0, 0); };
 		top = { anchorpoint = Vector2.new(0.5, 0); position = UDim2.fromScale(0.5, 0); };
-		topright = { anchorpoint = Vector2.new(1, 0); position = UDim2.fromScale(1, 0); };
+		topright = { anchorpoint = Vector2.xAxis; position = UDim2.fromScale(1, 0); };
 
 		centerleft = { anchorpoint = Vector2.new(0, 0.5); position = UDim2.fromScale(0, 0.5); };
 		center = { anchorpoint = Vector2.new(0.5, 0.5); position = UDim2.fromScale(0.5, 0.5); };
 		centerright = { anchorpoint = Vector2.new(1, 0.5); position = UDim2.fromScale(1, 0.5); };
 
-		bottomleft = { anchorpoint = Vector2.new(0, 1); position = UDim2.fromScale(0, 1); };
+		bottomleft = { anchorpoint = Vector2.yAxis; position = UDim2.fromScale(0, 1); };
 		bottom = { anchorpoint = Vector2.new(0.5, 1); position = UDim2.fromScale(0.5, 1); };
-		bottomright = { anchorpoint = Vector2.new(1, 1); position = UDim2.fromScale(1, 1); };
+		bottomright = { anchorpoint = Vector2.one; position = UDim2.fromScale(1, 1); };
+	};
+	--- `gui.resolvetextsize()` textscale udims
+	textscaleudims = {
+		smallest = UDim.new(0.010, 10);
+		small = UDim.new(0.014, 10);
+		default = UDim.new(0.018, 10);
+		large = UDim.new(0.022, 10);
+		largest = UDim.new(0.026, 10);
+	};
+	--- `gui.resolvetextsize()` preferredtextsize udims
+	preferredtextsizes = {
+		[Enum.PreferredTextSize.Medium] = UDim.new(0.000, 0);
+		[Enum.PreferredTextSize.Large] = UDim.new(0.004, 2);
+		[Enum.PreferredTextSize.Larger] = UDim.new(0.008, 4);
+		[Enum.PreferredTextSize.Largest] = UDim.new(0.012, 6);
 	};
 }
+
+--- returns `GuiService.PreferredTextSize`
+function gui.readpreferredtextsize()
+	return GuiService.PreferredTextSize
+end
+
+--- returns `GuiService:GetPropertyChangedSignal("PreferredTextSize")`
+function gui.preferredtextsizechanged()
+	return GuiService:GetPropertyChangedSignal("PreferredTextSize")
+end
+
+--- returns `GuiService.PreferredTransparency`
+function gui.readpreferredtransparency()
+	return GuiService.PreferredTransparency
+end
+
+--- returns `GuiService:GetPropertyChangedSignal("PreferredTransparency")`
+function gui.preferredtransparencychanged()
+	return GuiService:GetPropertyChangedSignal("PreferredTransparency")
+end
+
+--- returns `GuiService.ReducedMotionEnabled`
+function gui.readreducedmotionenabled()
+	return GuiService.ReducedMotionEnabled
+end
+
+--- returns `GuiService:GetPropertyChangedSignal("ReducedMotionEnabled")`
+function gui.reducedmotionchanged()
+	return GuiService:GetPropertyChangedSignal("ReducedMotionEnabled")
+end
+
+--- returns `GuiService:GetGuiInset()`
+function gui.readguiinset()
+	return GuiService:GetGuiInset()
+end
+
+--- returns `(viewportabsolutesize.Y * udim.Scale) + udim.Offset`
+function gui.resolvetextsize(viewportabsolutesize: Vector2, udim: UDim)
+	return (viewportabsolutesize.Y * udim.Scale) + udim.Offset
+end
 
 --- applies uiaspectratioconstraint to guiobject \
 --- searches for preexisting before instantiating a new one
@@ -284,6 +378,32 @@ function gui.uicorner(guiobject: GuiObject, cornerradius: UDim)
 		uicorner.Parent = guiobject
 
 		return uicorner
+	end
+end
+
+--- applies uigradient to guiobject \
+--- searches for preexisting before instantiating a new one
+function gui.uigradient(guiobject: GuiObject, params: gradientparams)
+	local preexisting = guiobject:FindFirstAncestorWhichIsA("UIGradient")
+	if preexisting then
+		preexisting.Color = params.color or colorsequencewhite
+		preexisting.Enabled = params.enabled ~= nil and params.enabled or true
+		preexisting.Offset = params.offset or Vector2.zero
+		preexisting.Rotation = params.rotation or 0
+		preexisting.Transparency = params.transparency or numbersequencezero
+
+		return preexisting
+	else
+		local uigradient = Instance.new("UIGradient")
+		uigradient.Color = params.color or colorsequencewhite
+		uigradient.Enabled = params.enabled ~= nil and params.enabled or true
+		uigradient.Offset = params.offset or Vector2.zero
+		uigradient.Rotation = params.rotation or 0
+		uigradient.Transparency = params.transparency or numbersequencezero
+
+		uigradient.Parent = guiobject
+
+		return uigradient
 	end
 end
 
@@ -407,6 +527,38 @@ function gui.setimage(guiimageobject: ImageButton|ImageLabel, imageparams: image
 	guiimageobject.ScaleType = imageparams.scaletype or Enum.ScaleType.Stretch
 end
 
+function gui.settextparams(guitextobject: TextButton|TextLabel, textparams: textparams)
+	guitextobject.RichText = textparams.richtext ~= nil and textparams.richtext or true
+	guitextobject.TextScaled = textparams.textscaled ~= nil and textparams.textscaled or false
+	guitextobject.Font = textparams.font or Enum.Font.Arimo
+	guitextobject.TextColor3 = textparams.textcolor or Color3.fromRGB(255, 255, 255)
+	guitextobject.TextStrokeColor3 = textparams.textstrokecolor or Color3.fromRGB(0, 0, 0)
+	guitextobject.TextStrokeTransparency = textparams.textstroketransparency or 0
+	guitextobject.TextXAlignment = textparams.textxalignment or Enum.TextXAlignment.Center
+	guitextobject.TextYAlignment = textparams.textyalignment or Enum.TextYAlignment.Center
+end
+
+function gui.setviewportparams(viewportframe: ViewportFrame, viewportparams: viewportparams)
+	viewportframe.LightColor = viewportparams.lightcolor or Color3.fromRGB(255, 255, 255)
+	viewportframe.LightDirection = viewportparams.lightdirection or Vector3.new(-0.707, -1, 0.707)
+	viewportframe.Ambient = viewportparams.ambient or Color3.fromRGB(148, 148, 148)
+	viewportframe.CurrentCamera = viewportparams.currentcamera or nil::any
+	viewportframe.ImageColor3 = viewportparams.imagecolor or Color3.fromRGB(255, 255, 255)
+	viewportframe.ImageTransparency = viewportparams.imagetransparency or 0
+end
+
+--- creates a button (textbutton)
+function gui.createbutton(params: appearance & alignment)
+	local textbutton = Instance.new("TextButton")
+
+	gui.setappearance(textbutton, params)
+	gui.setalignment(textbutton, params)
+	
+	textbutton.Text = ""
+
+	return textbutton
+end
+
 --- creates a frame
 function gui.createframe(params: appearance & alignment)
 	local frame = Instance.new("Frame")
@@ -415,27 +567,6 @@ function gui.createframe(params: appearance & alignment)
 	gui.setalignment(frame, params)
 
 	return frame
-end
-
---- creates a textlabel
-function gui.createtextlabel(params: appearance & alignment & textparams)
-	local textlabel = Instance.new("TextLabel")
-
-	gui.setappearance(textlabel, params)
-	gui.setalignment(textlabel, params)
-	
-	textlabel.Text = ""
-	textlabel.RichText = true
-	textlabel.TextScaled = false
-
-	textlabel.Font = params.font or Enum.Font.Arimo
-	textlabel.TextColor3 = params.textcolor or Color3.fromRGB(255, 255, 255)
-	textlabel.TextStrokeColor3 = params.textstrokecolor or Color3.fromRGB(0, 0, 0)
-	textlabel.TextStrokeTransparency = params.textstroketransparency or 0
-	textlabel.TextXAlignment = params.textxalignment or Enum.TextXAlignment.Center
-	textlabel.TextYAlignment = params.textyalignment or Enum.TextYAlignment.Center
-
-	return textlabel
 end
 
 --- creates an imagelabel
@@ -449,18 +580,46 @@ function gui.createimagelabel(params: appearance & alignment & imageparams)
 	return imagelabel
 end
 
---- creates a button (textbutton)
-function gui.createbutton(params: appearance & alignment)
-	local textbutton = Instance.new("TextButton")
+--- creates a textlabel
+function gui.createtextlabel(params: appearance & alignment & textparams)
+	local textlabel = Instance.new("TextLabel")
 
-	gui.setappearance(textbutton, params)
-	gui.setalignment(textbutton, params)
+	gui.setappearance(textlabel, params)
+	gui.setalignment(textlabel, params)
+	gui.settextparams(textlabel, params)
 	
-	textbutton.Text = ""
-	textbutton.RichText = true
-	textbutton.TextScaled = false
+	textlabel.Text = ""
+	textlabel.RichText = true
+	textlabel.TextScaled = false
 
-	return textbutton
+	return textlabel
+end
+
+--- creates a viewportframe
+function gui.createviewportframe(params: appearance & alignment & viewportparams)
+	local viewportframe = Instance.new("ViewportFrame")
+
+	gui.setappearance(viewportframe, params)
+	gui.setalignment(viewportframe, params)
+	gui.setviewportparams(viewportframe, params)
+
+	return viewportframe
+end
+
+--- populates `target` with `count` clones of `source`
+function gui.fill<T>(target: GuiObject, source: GuiObject & T, count: number)
+	local result = table.create(count)::{typeof(source)}
+
+	for i = 1, count do
+		local clone = source:Clone()
+		clone.Name = tostring(i)
+		clone.LayoutOrder = i
+		clone.Parent = target
+
+		table.insert(result, clone)
+	end
+
+	return result
 end
 
 --- creates a tree of instanced guiobjects
@@ -493,6 +652,27 @@ function gui.tree(t: tree)
 	return result
 end
 
+--- queries `gui.tree()` return type
+function gui.query(r: treeresult, name: string, isa: string)
+	local result = {}
+
+	local instance = r.instance
+	if instance then
+		if instance.Name == name and instance:IsA(isa) then
+			table.insert(result, instance)
+		end
+	end
+	local contains = r.contains
+	if contains then
+		for i, thing in ipairs(contains) do
+			local reresult = gui.query(thing, name, isa)
+			table.move(reresult, 1, #reresult, #result + 1, result)
+		end
+	end
+
+	return result
+end
+
 local getcore: getcore = function(parameter)
 	return StarterGui:GetCore(parameter)
 end
@@ -517,41 +697,6 @@ end
 
 --- returns `string.format("rbxthumb://type=%s&id=%d&w=%s&h=%s", type, id, unpack(string.split(size, "x")))`
 gui.rbxthumb = rbxthumb
-
---- returns `GuiService.PreferredTextSize`
-function gui.preferredtextsize()
-	return GuiService.PreferredTextSize
-end
-
---- returns `GuiService:GetPropertyChangedSignal("PreferredTextSize")`
-function gui.preferredtextsizechanged()
-	return GuiService:GetPropertyChangedSignal("PreferredTextSize")
-end
-
---- returns `GuiService.PreferredTransparency`
-function gui.preferredtransparency()
-	return GuiService.PreferredTransparency
-end
-
---- returns `GuiService:GetPropertyChangedSignal("PreferredTransparency")`
-function gui.preferredtransparencychanged()
-	return GuiService:GetPropertyChangedSignal("PreferredTransparency")
-end
-
---- returns `GuiService.ReducedMotionEnabled`
-function gui.reducedmotionenabled()
-	return GuiService.ReducedMotionEnabled
-end
-
---- returns `GuiService:GetPropertyChangedSignal("ReducedMotionEnabled")`
-function gui.reducedmotionchanged()
-	return GuiService:GetPropertyChangedSignal("ReducedMotionEnabled")
-end
-
---- returns `GuiService:GetGuiInset()`
-function gui.guiinset()
-	return GuiService:GetGuiInset()
-end
 
 --- locally emits a TextChatService message in `channel (?="RBXGeneral")`
 function gui.textchatmessage(message: string, channel: string?)
