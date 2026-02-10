@@ -5,34 +5,55 @@ local random = Random.new()
 
 --- ### vector3h.luau
 ---
---- Vector3 library extension
+--- Vector3 library extension \
+--- vector library wrappers (normalize, magnitude, etc) are `(...::any)::Vector3`-casted
 local vector3h = {
 	yzaxis = Vector3.one - Vector3.xAxis;
 	xzaxis = Vector3.one - Vector3.yAxis;
 	xyaxis = Vector3.one - Vector3.zAxis;
 }
 
---- returns vector3-typecasted `vector.lerp(v, w a)`
-function vector3h.lerp(v: Vector3, w: Vector3, a: number)
-	return (vector.lerp(v::any, w::any, a)::any)::Vector3
+--- returns `vector.lerp(v, w, t)`
+function vector3h.lerp(v: Vector3, w: Vector3, t: number)
+	return (vector.lerp(v::any, w::any, t)::any)::Vector3
 end
 
---- returns vector3-typecasted `vector.normalize(v)`
+--- returns `vector.slerp(v, w, t)`
+function vector3h.slerp(v: Vector3, w: Vector3, t: number)
+	local angle = math.acos(vector.dot(v::any, w::any))
+	if angle < 1e-4 then
+		return w
+	else
+		return (math.sin(angle * (1 - t)) * v + math.sin(angle * t) * w ) / math.sin(angle)
+	end
+end
+
+--- returns `vector.normalize(v)`
 function vector3h.normalize(v: Vector3)
 	return (vector.normalize(v::any)::any)::Vector3
 end
 
---- returns vector3-typecasted `vector.magnitude(v)`
+--- returns `vector.magnitude(v)`
 function vector3h.magnitude(v: Vector3)
 	return vector.magnitude(v::any)
+end
+
+--- returns `vector.dot(v, w)`
+function vector3h.dot(v: Vector3, w: Vector3)
+	return vector.dot(v::any, w::any)
+end
+
+--- returns `math.acos(vector.dot(v, w))`
+function vector3h.angle(v: Vector3, w: Vector3)
+	return math.acos(vector.dot(v::any, w::any)) --- faster than vector.angle(v, w)
 end
 
 --- returns whether or not `v` is finite
 function vector3h.isfinite(v: Vector3)
 	local x, y, z = v.X, v.Y, v.Z
-	return (x == x and x ~= 1/0 and x ~= -1/0)
-		and (y == y and y ~= 1/0 and y ~= -1/0)
-		and (z == z and z ~= 1/0 and z ~= -1/0)
+	return math.isfinite(x)
+		and math.isfinite(y)
+		and math.isfinite(z)
 end
 
 --- returns `vector.normalize(v)`, or, if `NaN`, `Vector3.zero`
@@ -234,58 +255,6 @@ function vector3h.movevector(i: Vector3, lookvector: Vector3, upvector: Vector3)
 
 	local length = (cos*cos + sin*sin)^0.5
 	return Vector3.new(cos*i.X + sin*i.Z, 0, cos*i.Z - sin*i.X) / length
-end
-
---- interpolates between unit vector `v` and unit vector `w` with respect to interpolant `t` \
---- axisangle is the goat
-function vector3h.slerp(v: Vector3, w: Vector3, t: number)
-	local alen = vector.magnitude(v::any)
-	local blen = vector.magnitude(w::any)
-
-	if alen == 0 and blen == 0 then
-		return Vector3.zero
-	elseif alen == 0 then
-		if t < 1 then
-			return Vector3.zero
-		elseif t == 1 then
-			return w
-		else
-			return math.huge*w
-		end
-	elseif blen == 0 then
-		if t < 0 then
-			return math.huge*v
-		elseif t == 0 then
-			return v
-		else
-			return Vector3.zero
-		end
-	end
-
-	local clen = alen^(1 - t)*blen^t --- final magnitude
-
-	-- get k*cosine and k*sine components of the angle between v and w
-	local cos = vector.dot(v::any, w::any)
-	local sin = vector.magnitude(vector.cross(v::any, w::any))
-
-	local aunitvector = (vector.normalize(v::any)::any)::Vector3
-	local bunitvector = (vector.normalize(w::any)::any)::Vector3
-
-	-- more degenerate cases
-	if cos < 0 and sin < -1e-16*cos then --- this test sees, in a stable way, if they are opposite and abs(tan(angle)) < 1e-16
-		if t%2 < 1/2 or t%2 >= 3/2 then
-			return clen*aunitvector
-		else
-			return clen*bunitvector
-		end
-	elseif cos > 0 and sin < 1e-16*cos then --- this test sees, in a stable way, if they are in the same direction and abs(tan(angle)) < 1e-16
-		return clen*(vector.normalize((1 - t)*aunitvector + t*bunitvector::any)::any)
-	end
-	local angle = math.atan2(sin, cos)
-
-	local cunitvector = (vector.normalize(math.sin((1 - t)*angle)*aunitvector + math.sin(t*angle)*bunitvector::any)::any)::Vector3
-
-	return clen*cunitvector
 end
 
 --- returns `point` transformed to objectspace of `position, lookvector, upvector(?=Vector3.yAxis)` \

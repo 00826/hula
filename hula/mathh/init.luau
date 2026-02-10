@@ -172,23 +172,6 @@ function mathh.aligncenter(x: number, reverse: boolean?)
 	end
 end
 
---- returns a falloff value in `[0, 1]` given `x`, where `x in [a, b]` is the most optimal: \
---- where `x in [0, a)`: `[0, 1)` \
---- where `x in [a, b]`: `{1}` \
---- where `x in (b, c]`: `(1, 0]` \
---- where `x in (c, ∞]`: `{0}`
-function mathh.falloff(x: number, a: number, b: number, c: number)
-	if x < a then
-		return x / a
-	elseif x > c then
-		return 0
-	elseif x > b then
-		return 1 - (x - b) / (c - b)
-	else
-		return 1
-	end
-end
-
 --- returns value of sine wave (`a * math.sin(x / b) + k`) with respect to time `t` \
 --- `a`: amplitude \
 --- `t`: time \

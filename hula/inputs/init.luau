@@ -6,6 +6,12 @@ local GuiService = game:GetService("GuiService")
 local GamepadService = game:GetService("GamepadService")
 local UserInputService = game:GetService("UserInputService")
 
+export type keybind = {
+	key: string;
+	value: { number };
+	preferredinputbinds: { [Enum.PreferredInput]: { number } };
+}
+
 --- ### inputs.luau
 ---
 --- input service wrapper
@@ -54,22 +60,33 @@ local inputs = {
 	UserInputService = UserInputService;
 }
 
---- returns index-value pair of key bound to `inputs.inputtypestokeycodes[inputobject.UserInputType]` or `inputObject.KeyCode` \
---- `Enum.KeyCode.Unknown` returns `nil, nil`
-function inputs.keybindof<T>(inputobject: InputObject, keybinds: {{ keys: {Enum.KeyCode} }} & T): (number?, any?)
+--- returns first keybind bound to `inputobject.KeyCode.Value`
+function inputs.keybind(inputobject: InputObject, keybinds: { keybind }): keybind?
 	local keycode = inputs.inputtypestokeycodes[inputobject.UserInputType] or inputobject.KeyCode
+	local enumvalue = keycode.Value
 
-	if keycode == Enum.KeyCode.Unknown then
-		return nil, nil
+	if enumvalue == 0 then
+		--- unknown
+		return nil
 	else
-		for i, bind in ipairs(keybinds) do
-			if table.find(bind.keys, keycode) then
-				return i, bind
+		--- not unknown
+		for i, keybind in ipairs(keybinds) do
+			if table.find(keybind.value, enumvalue) ~= nil then
+				return keybind
 			end
 		end
-	end
 
-	return nil, nil
+		return nil
+	end
+end
+
+--- rebinds keybinds wrt preferredinput
+function inputs.rebind(preferredinput: Enum.PreferredInput, keybinds: { keybind })
+	for i, keybind in ipairs(keybinds) do
+		table.clear(keybind.value)
+		local t = keybind.preferredinputbinds[preferredinput] or {}
+		table.move(t, 1, #t, 1, keybind.value)
+	end
 end
 
 --- returns `UserInputService.InputBegan`
@@ -120,6 +137,11 @@ end
 --- returns `UserInputService:GetMouseLocation()`
 function inputs.readmouselocation()
 	return UserInputService:GetMouseLocation()
+end
+
+--- returns `UserInputService:GetMouseDelta()`
+function inputs.readmousedelta()
+	return UserInputService:GetMouseDelta()
 end
 
 --- returns `UserInputService.MouseBehavior`

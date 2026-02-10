@@ -7,7 +7,6 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local colorsequencewhite = ColorSequence.new(Color3.fromRGB(255, 255, 255))
-local numbersequencezero = NumberSequence.new(0)
 
 local function tween(object: Instance, properties: {[string]: any}, time: number, style: Enum.EasingStyle?, ...)
 	TweenService:Create(object, TweenInfo.new(time, style or Enum.EasingStyle.Linear, ...), properties):Play()
@@ -21,6 +20,8 @@ export type appearance = {
 	backgroundtransparency: number?;
 	--- `?=0`
 	bordersizepixel: number?;
+	--- `?=enabled ~= nil and enabled or true`
+	visible: boolean?;
 	--- `?=1`
 	zindex: number?;
 }
@@ -34,9 +35,9 @@ export type alignment = {
 	--- `?=udim2.fromoffset(64, 64)`
 	size: UDim2?;
 	--- `?=0`
-	rotation: number?;
-	--- `?=0`
 	layoutorder: number?;
+	--- `?=0`
+	rotation: number?;
 }
 
 --- type describing uistroke properties
@@ -47,12 +48,14 @@ export type strokeparams = {
 	transparency: number?;
 	--- `?=1`
 	thickness: number?;
-	--- `?=bevel`
+	--- `?=miter`
 	linejoinmode: Enum.LineJoinMode?;
 	--- `?=contextual`
 	applystrokemode: Enum.ApplyStrokeMode?;
 	--- `?=udim.new(0, 0)`
 	borderoffset: UDim?;
+	--- `?=1`
+	zindex: number?;
 }
 
 --- type describing uilayoutobject properties
@@ -93,6 +96,12 @@ export type gridparams = {
 export type listparams = {
 
 } & layout
+
+--- type describing guibutton properties
+export type buttonparams = {
+	--- `?=autobuttoncolor ~= nil and autobuttoncolor or false`
+	autobuttoncolor: boolean?;
+}
 
 --- type describing textlabel properties
 export type textparams = {
@@ -290,6 +299,24 @@ local gui = {
 		bottom = { anchorpoint = Vector2.new(0.5, 1); position = UDim2.fromScale(0.5, 1); };
 		bottomright = { anchorpoint = Vector2.one; position = UDim2.fromScale(1, 1); };
 	};
+	--- shorthand numbersequences
+	numbersequences = {
+		zero = NumberSequence.new(0.000);
+		half = NumberSequence.new(0.500);
+		one = NumberSequence.new(1.000);
+		stepzeroone = NumberSequence.new({
+			NumberSequenceKeypoint.new(0.000, 0),
+			NumberSequenceKeypoint.new(0.499, 0),
+			NumberSequenceKeypoint.new(0.501, 1),
+			NumberSequenceKeypoint.new(1.000, 1),
+		});
+		steponezero = NumberSequence.new({
+			NumberSequenceKeypoint.new(0.000, 1),
+			NumberSequenceKeypoint.new(0.499, 1),
+			NumberSequenceKeypoint.new(0.501, 0),
+			NumberSequenceKeypoint.new(1.000, 0),
+		});
+	};
 	--- `gui.resolvetextsize()` textscale udims
 	textscaleudims = {
 		smallest = UDim.new(0.010, 10);
@@ -387,19 +414,19 @@ function gui.uigradient(guiobject: GuiObject, params: gradientparams)
 	local preexisting = guiobject:FindFirstAncestorWhichIsA("UIGradient")
 	if preexisting then
 		preexisting.Color = params.color or colorsequencewhite
-		preexisting.Enabled = params.enabled ~= nil and params.enabled or true
+		preexisting.Enabled = if params.enabled ~= nil then params.enabled else true
 		preexisting.Offset = params.offset or Vector2.zero
 		preexisting.Rotation = params.rotation or 0
-		preexisting.Transparency = params.transparency or numbersequencezero
+		preexisting.Transparency = params.transparency or gui.numbersequences.zero
 
 		return preexisting
 	else
 		local uigradient = Instance.new("UIGradient")
 		uigradient.Color = params.color or colorsequencewhite
-		uigradient.Enabled = params.enabled ~= nil and params.enabled or true
+		uigradient.Enabled = if params.enabled ~= nil then params.enabled else true
 		uigradient.Offset = params.offset or Vector2.zero
 		uigradient.Rotation = params.rotation or 0
-		uigradient.Transparency = params.transparency or numbersequencezero
+		uigradient.Transparency = params.transparency or gui.numbersequences.zero
 
 		uigradient.Parent = guiobject
 
@@ -495,10 +522,11 @@ function gui.uistroke(guiobject: GuiObject, params: strokeparams)
 	local uistroke = Instance.new("UIStroke")
 	uistroke.Color = params.color or Color3.fromRGB(0, 0, 0)
 	uistroke.ApplyStrokeMode = params.applystrokemode or Enum.ApplyStrokeMode.Contextual
-	uistroke.LineJoinMode = params.linejoinmode or Enum.LineJoinMode.Bevel
+	uistroke.LineJoinMode = params.linejoinmode or Enum.LineJoinMode.Miter
 	uistroke.Thickness = params.thickness or 1
 	uistroke.Transparency = params.transparency or 0
 	uistroke.BorderOffset = params.borderoffset or UDim.new(0, 0)
+	uistroke.ZIndex = params.zindex or 1
 
 	uistroke.Parent = guiobject
 
@@ -509,6 +537,7 @@ function gui.setappearance(guiobject: GuiObject, appearance: appearance)
 	guiobject.BackgroundColor3 = appearance.backgroundcolor or Color3.fromRGB(255, 255, 255)
 	guiobject.BackgroundTransparency = appearance.backgroundtransparency or 1
 	guiobject.BorderSizePixel = appearance.bordersizepixel or 0
+	guiobject.Visible = if appearance.visible ~= nil then appearance.visible else true
 	guiobject.ZIndex = appearance.zindex or 1
 end
 
@@ -516,6 +545,7 @@ function gui.setalignment(guiobject: GuiObject, alignment: alignment)
 	guiobject.AnchorPoint = alignment.anchorpoint or Vector2.new(0, 0)
 	guiobject.Position = alignment.position or UDim2.fromScale(0, 0)
 	guiobject.Size = alignment.size or UDim2.fromOffset(64, 64)
+	guiobject.LayoutOrder = alignment.layoutorder or 0
 	guiobject.Rotation = alignment.rotation or 0
 end
 
@@ -528,8 +558,8 @@ function gui.setimage(guiimageobject: ImageButton|ImageLabel, imageparams: image
 end
 
 function gui.settextparams(guitextobject: TextButton|TextLabel, textparams: textparams)
-	guitextobject.RichText = textparams.richtext ~= nil and textparams.richtext or true
-	guitextobject.TextScaled = textparams.textscaled ~= nil and textparams.textscaled or false
+	guitextobject.RichText = if textparams.richtext ~= nil then textparams.richtext else true
+	guitextobject.TextScaled = if textparams.textscaled ~= nil then textparams.textscaled else false
 	guitextobject.Font = textparams.font or Enum.Font.Arimo
 	guitextobject.TextColor3 = textparams.textcolor or Color3.fromRGB(255, 255, 255)
 	guitextobject.TextStrokeColor3 = textparams.textstrokecolor or Color3.fromRGB(0, 0, 0)
@@ -755,33 +785,27 @@ end
 
 --- applies `sprite` to `imagelabel` \
 --- sprite coordinates are zero-indexed
-function gui.sprite(imagelabel: ImageLabel, sheet: { contentid: number|string|Content; spritesize: Vector2; width: number; offsets: {[string]: Vector2} }?, key: string?)
-	if not sheet or not key then
+function gui.sprite(imagelabel: ImageLabel, sprite: { position: Vector2, size: Vector2, sheet: number|string|Content }?)
+	if sprite then
+		--- set imagecontent
+		local sheet = sprite.sheet
+		if type(sheet) == "number" then
+			imagelabel.ImageContent = Content.fromAssetId(sheet)
+		elseif type(sheet) == "string" then
+			imagelabel.ImageContent = Content.fromUri(sheet)
+		elseif typeof(sheet) == "Content" then
+			imagelabel.ImageContent = sheet
+		end
+
+		--- set size n offset
+		local size = sprite.size
+		imagelabel.ImageRectSize = size
+		imagelabel.ImageRectOffset = sprite.position * size
+	else
 		--- reset
 		imagelabel.ImageContent = Content.none
 		imagelabel.ImageRectSize = Vector2.zero
 		imagelabel.ImageRectOffset = Vector2.zero
-	else
-		local offset = sheet.offsets[key]
-		if offset then
-			--- set imagecontent
-			local content = sheet.contentid
-			if type(content) == "number" then
-				imagelabel.ImageContent = Content.fromAssetId(content)
-			elseif type(content) == "string" then
-				imagelabel.ImageContent = Content.fromUri(content)
-			elseif typeof(content) == "Content" then
-				imagelabel.ImageContent = content
-			end
-
-			--- set size n offset
-			local size = sheet.spritesize
-			imagelabel.ImageRectSize = size
-			imagelabel.ImageRectOffset = offset * size
-		else
-			--- recurse-reset
-			gui.sprite(imagelabel, nil, nil)
-		end
 	end
 end
 
