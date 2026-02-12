@@ -257,6 +257,28 @@ function vector3h.movevector(i: Vector3, lookvector: Vector3, upvector: Vector3)
 	return Vector3.new(cos*i.X + sin*i.Z, 0, cos*i.Z - sin*i.X) / length
 end
 
+--- returns whether ray starting at `rayposition` in `raydirection` intersects axis-aligned box at `boxposition` with size `boxsize`
+function vector3h.israyintersectingbox(rayposition: Vector3, raydirection: Vector3, boxposition: Vector3, boxsize: Vector3)
+	local rx, ry, rz = rayposition.X, rayposition.Y, rayposition.Z
+	local dxi, dyi, dzi = 1 / raydirection.X, 1 / raydirection.Y, 1 / raydirection.Z
+
+	local halfsize = boxsize * 0.5
+	local min = boxposition - halfsize
+	local max = boxposition + halfsize
+
+	local t1 = (min.X - rx) * dxi
+	local t2 = (max.X - rx) * dxi
+	local t3 = (min.Y - ry) * dyi
+	local t4 = (max.Y - ry) * dyi
+	local t5 = (min.Z - rz) * dzi
+	local t6 = (max.Z - rz) * dzi
+
+	local tmin = math.max(math.max(math.min(t1, t2), math.min(t3, t4)), math.min(t5, t6))
+	local tmax = math.min(math.min(math.max(t1, t2), math.max(t3, t4)), math.max(t5, t6))
+
+	return if tmax < 0 then false elseif tmin > tmax then false else true
+end
+
 --- returns `point` transformed to objectspace of `position, lookvector, upvector(?=Vector3.yAxis)` \
 --- eev is the goat
 function vector3h.pointtoobjectspace(point: Vector3, position: Vector3, lookvector: Vector3, upvector: Vector3?)

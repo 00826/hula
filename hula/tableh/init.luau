@@ -141,7 +141,7 @@ end
 --- rotate([1, 2, 3, 4, 5], 1) -> [5, 1, 2, 3, 4]
 --- rotate([1, 2, 3, 4, 5], -1) -> [2, 3, 4, 5, 1]
 --- ```
-function tableh.rotate(t: {any}, x: number)
+function tableh.rotate<T>(t: {T}, x: number)
 	if x ~= 0 then
 		if x > 0 then
 			local value = table.remove(t)
