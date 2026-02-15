@@ -7,8 +7,8 @@ local random = Random.new()
 ---
 --- string library extension
 local stringh = {
-	--- number abbreviations
-	abbreviations = {"", "K", "M", "B", "T", "Qd", "Qt", "Sx", "Sp", "Oc", "No", "De"};
+	--- base-1000 numeric suffixes
+	suffixes = {"K", "M", "B", "T", "Qd", "Qt", "Sx", "Sp", "Oc", "No", "De"};
 }
 
 --- returns a randomized alphanumeric string from regex characters `[A-Za-z0-9]`
@@ -174,29 +174,74 @@ function stringh.delta(x: number)
 	return x > 0 and "+" .. tostring(x) or tostring(x)
 end
 
---- separates number by thousands place separator
+--- separates integer with thousands separator
+--- 
+--- ```lua
+--- stringh.separate(31415, ",") --- 31,415
+--- stringh.separate(31415, "_") --- 31_415
+--- ```
 function stringh.separate(x: number, separator: string)
-	if math.abs(x) < 1000 then
-		return tostring(math.floor(x))
+	if math.isinf(x) then
+		return "inf"
+	elseif math.isnan(x) then
+		return "nan"
+	elseif math.abs(x) < 1000 then
+		return tostring(math.round(x))
 	else
-		local str = string.reverse(string.gsub(string.reverse(tostring(math.floor(x))), "(%d%d%d)", "%1" .. (separator or ","))::any)
-
-		return string.sub(str, string.find(str, "%d")::any, -1)
+		local sign = x < 0 and "-" or ""
+		local abs = math.abs(math.round(x))
+		
+		local reverse = string.reverse(tostring(abs))
+		local len = string.len(reverse)
+		local result = ""
+		
+		--- beginning at nearest multiple of 3 to guarantee entire string gets substring-ed
+		for i = (len - 1 - (len - 1) % 3 + 3), 1, -3 do
+			result ..= string.reverse(string.sub(reverse, i - 2, i)) .. separator
+		end
+		
+		return sign .. string.sub(result, 1, string.len(result) - 1)
 	end
 end
 
---- abbreviates number \
---- separated by fractional `separator` \
---- truncated by `places`
+--- abbreviates number with its associated base-1000 suffix
 --- 
 --- ```lua
---- stringh.stringh(31415, ".", 1) --- 31.4K
+--- stringh.abbreviate(31415, ".", 1) --- 31.4K
+--- stringh.abbreviate(31415, ",", 2) --- 31,41K
 --- ```
-function stringh.abbreviate(x: number, separator: string, places: number)
-	local exp = math.floor(math.log(math.max(1, math.abs(x)), 1000))
-	local suffix = stringh.abbreviations[1 + exp] or ("e+" .. exp)
+function stringh.abbreviate(x: number, separator: string, precision: number)
+	if math.isinf(x) then
+		return "inf"
+	elseif math.isnan(x) then
+		return "nan"
+	elseif math.abs(x) < 1000 then
+		local int, frac = math.modf(x)
 
-	return string.gsub(tostring(math.floor(x * ((10 ^ places) / (1000 ^ exp))) / (10 ^ places)), "[.]", separator) .. suffix
+		return string.format(
+			"%d%s%s",
+			int,
+			separator,
+			string.sub(string.format(
+				"%." .. tostring(precision) .. "f"::any,
+				math.abs(frac)
+			), 3)
+		)
+	else
+		local log = math.log(math.abs(x), 1000) // 1
+		local int, frac = math.modf(x / (1000 ^ log))
+
+		return string.format(
+			"%d%s%s%s",
+			int,
+			separator,
+			string.sub(string.format(
+				"%." .. tostring(precision) .. "f"::any,
+				math.abs(frac)
+			), 3),
+			stringh.suffixes[log] or "e" .. tostring(math.log(math.abs(x), 10) // 1)
+		)
+	end
 end
 
 --- returns `string.format("<mark color='#000000' transparency='%.3f'>%s</mark>", text)`

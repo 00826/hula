@@ -236,6 +236,11 @@ end
 --- returns an intersection of all tables passed, in order
 tableh.intersect = intersect
 
+--- shuffles table in-place
+function tableh.shuffle<T>(t: {T}, R: Random?)
+	(R or random):Shuffle(t)
+end
+
 --- reverses range of table, starting at `i (?=1)` and ending at `j (?=#t)`
 function tableh.reverse<T>(t: {T}, i: number?, j: number?)
 	i = i or 1

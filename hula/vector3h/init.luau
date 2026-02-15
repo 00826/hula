@@ -91,8 +91,8 @@ function vector3h.write(v: Vector3, w: Vector3)
 	)
 end
 
---- returns point on bezier curve at interpolant `a`
-function vector3h.bezier(vectors: {Vector3}, a: number)
+--- returns point on bezier curve at interpolant `t`
+function vector3h.bezier(vectors: {Vector3}, t: number)
 	local len = #vectors
 	if len > 1 then
 		local result = table.create(len)::{Vector3}
@@ -100,10 +100,10 @@ function vector3h.bezier(vectors: {Vector3}, a: number)
 			local w = vectors[i + 1]
 			if not w then break end
 
-			table.insert(result, (vector.lerp(v::any, w::any, a)::any)::Vector3)
+			table.insert(result, (vector.lerp(v::any, w::any, t)::any)::Vector3)
 		end
 
-		return vector3h.bezier(result, a)
+		return vector3h.bezier(result, t)
 	else
 		return vectors[1]
 	end
