@@ -279,36 +279,6 @@ local color3h = {
 		["White"] = Color3.new(0.94902, 0.952941, 0.952941);
 		["Yellow flip/flop"] = Color3.new(0.705882, 0.517647, 0.333333);
 	};
-
-	--- ### color3h.ColorSequence
-	---
-	--- ColorSequence library extension
-	ColorSequence = {
-		white = ColorSequence.new(Color3.fromRGB(255, 255, 255));
-		gray = ColorSequence.new(Color3.fromRGB(148, 148, 148));
-		black = ColorSequence.new(Color3.fromRGB(0, 0, 0));
-
-		--- returns `ColorSequence.new(Color3.fromRGB(w, w, w))`
-		fromconstant = function(w: number)
-			return ColorSequence.new(Color3.fromRGB(w, w, w))
-		end;
-		--- returns color3 in colorsequence at interpolant `t`
-		colorat = function(sequence: ColorSequence, t: number): Color3
-			local lastkeypoint = nil
-			for _, keypoint in ipairs(sequence.Keypoints) do
-				if lastkeypoint then
-					if t < keypoint.Time then
-						local time = lastkeypoint.Time
-
-						return lastkeypoint.Value:Lerp(keypoint.Value, (t - time) / (keypoint.Time - time))::Color3
-					end
-				end
-				lastkeypoint = keypoint
-			end
-
-			return Color3.fromRGB(255, 255, 255)::Color3
-		end;
-	};
 }
 
 --- returns `Color3.fromRGB(w, w, w)`

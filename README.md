@@ -18,38 +18,37 @@ a table of roblox-luau convenience modules
 |-|-|
 |[hula](./hula/init.luau)|table|
 |-|-|
-|[bufferh.luau](./hula/color3h/init.luau)|`buffer` library extension|
-|[color3h.luau](./hula/color3h/init.luau)|`Color3`, `ColorSequence` library extension|
-|[gui.luau](./hula/gui/init.luau)|`UDim`, `UDim2`, `Vector2` library extensions, ui helper functions|
+|[bufferh.luau](./hula/bufferh/init.luau)|`buffer` library extension|
+|[color3h.luau](./hula/color3h/init.luau)|`Color3` library extension|
+|[gui.luau](./hula/gui/init.luau)|gui helper functions and instantiators|
 |[inputs.luau](./hula/inputs/init.luau)|`UserInputService`, `GamepadService` wrapper|
 |[instanceh.luau](./hula/instanceh/init.luau)|`Instance` library extension|
 |[mathh.luau](./hula/mathh/init.luau)|`math`, `NumberRange`, `NumberSequence` library extension|
-|[net.luau](./hula/net/init.luau)|`client<->server` & `vm₁<->vm₁` networking, server-authoritative `DateTime.now().UnixTimestampMillis`, and miscellaneous time functions|
-|[patronage.luau](./hula/patronage/init.luau)|player patronage (devproducts, gamepasses, premium, group membership, etc)|
-|[stringh.luau](./hula/types/stringh.luau)|`string` library extension|
-|[tableh.luau](./hula/types/tableh.luau)|`table` library extension|
+|[net.luau](./hula/net/init.luau)|`client<->server` & `vm₁<->vm₁` networking, server-authoritative `DateTime.now().UnixTimestampMillis`, miscellaneous time functions|
+|[patronage.luau](./hula/patronage/init.luau)|aio devproducts, gamepasses, premium, group membership, etc|
+|[stringh.luau](./hula/stringh/init.luau)|`string` library extension|
+|[tableh.luau](./hula/tableh/init.luau)|`table` library extension|
 |[vector3h.luau](./hula/vector3h/init.luau)|`Vector3` library extension|
 
 ## design language
 
 ```lua
---- directives
+--- library naming conflicts suffixed with "h" (color3h, mathh)
+--- attributes prefixed with "h_"
 
---- RobloxType
---- luautype
---- hulatype
+--- services
+--- variables
+--- private functions
+--- types
+--- module
 
---- namingconflict .. "h" (color3h, mathh)
---- attribute flag prefix "h_"
---- --- sideline commentary
-
---- ### filename.luau /ipa/
+--- ### filename.luau
 ---
 --- description
 local t = {}
 
---- description, return types, and nil-fallbacks, separated by line breaks \
-function t.incr(x: number, y: number)
+--- description
+function t.sum(x: number, y: number)
 	--- ...
 
 	return x + y

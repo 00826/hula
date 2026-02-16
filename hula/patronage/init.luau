@@ -138,7 +138,7 @@ function patronage.productinfo(p: typeof(patronage.createproduct(...))): (boolea
 	if p.type.EnumType == Enum.MembershipType then
 		return false, "cannot get product info for enumtype 'Enum.MembershipType'"::any
 	else
-		return pcall(MarketplaceService.GetProductInfoAsync, MarketplaceService, p.key::any, p.type::any)
+		return pcall(MarketplaceService.GetProductInfoAsync::any, MarketplaceService, p.key, p.type)
 	end
 end
 
@@ -158,7 +158,7 @@ function patronage.productownership(p: typeof(patronage.createproduct(...)), pla
 	elseif type == Enum.InfoType.Product then
 		return true, false --- can never own a devproduct
 	elseif type == Enum.InfoType.Subscription then
-		return pcall(MarketplaceService.GetUserSubscriptionStatusAsync, MarketplaceService, player, key::any)
+		return pcall(MarketplaceService.GetUserSubscriptionStatusAsync::any, MarketplaceService, player, key::any)
 	elseif type == Enum.MembershipType.Premium then
 		return true, player.MembershipType == type::Enum.MembershipType
 	else
@@ -317,7 +317,7 @@ function patronage.policyinfo(player: Player): (boolean, {
 }?)
 	assert(isserver, "patronage.policyinfo can only be called on server")
 
-	return pcall(PolicyService.GetPolicyInfoForPlayerAsync, PolicyService, player)
+	return pcall(PolicyService.GetPolicyInfoForPlayerAsync::any, PolicyService, player)
 end
 
 --- returns `pcall(LocalizationService.GetCountryRegionForPlayerAsync, LocalizationService, player)`

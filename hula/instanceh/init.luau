@@ -1279,7 +1279,8 @@ function instanceh.createaccessory(assetid: number?)
 	assert(accessory)
 	assert(accessory:IsA("Accessory"))
 
-	local handle = accessory:FindFirstChild("Handle") or accessory:WaitForChild("Handle")
+	--- :/
+	local handle: any = accessory:FindFirstChild("Handle") or accessory:WaitForChild("Handle")
 	assert(handle)
 	assert(handle:IsA("BasePart"))
 

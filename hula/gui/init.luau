@@ -27,7 +27,7 @@ export type appearance = {
 }
 
 --- type describing guiobject position & rotation properties
-export type alignment = {
+export type alignmentparams = {
 	--- `?=vector2.new(0, 0)`
 	anchorpoint: Vector2?;
 	--- `?=udim2.fromscale(0, 0)`
@@ -58,20 +58,6 @@ export type strokeparams = {
 	zindex: number?;
 }
 
---- type describing uilayoutobject properties
-export type layout = {
-	--- `?=4`
-	padding: number?;
-	--- `?=center`
-	horizontalalignment: Enum.HorizontalAlignment?;
-	--- `?=center`
-	verticalalignment: Enum.VerticalAlignment?;
-	--- `?=horizontal`
-	filldirection: Enum.FillDirection?;
-	--- `?=layoutorder`
-	sortorder: Enum.SortOrder?;
-}
-
 --- type describing uigradient properties
 export type gradientparams = {
 	--- `?=colorsequence.new(color3.fromrgb(255, 255, 255))`
@@ -90,12 +76,15 @@ export type gradientparams = {
 export type gridparams = {
 	width: number;
 	height: number;
-} & layout
+	--- `?=4`
+	padding: number?;
+} & layoutparams
 
 --- type describing uilistlayout properties
 export type listparams = {
-
-} & layout
+	--- `?=4`
+	padding: number?;
+} & layoutparams
 
 --- type describing guibutton properties
 export type buttonparams = {
@@ -103,8 +92,20 @@ export type buttonparams = {
 	autobuttoncolor: boolean?;
 }
 
+--- type describing image properties
+export type spriteparams = {
+	--- imagerectoffset of this sprite
+	position: Vector2;
+	--- imagerectsize of this sprite
+	size: Vector2;
+	--- content/uri/assetid of this sprite
+	sheet: number|string|Content;
+}
+
 --- type describing textlabel properties
 export type textparams = {
+	--- `?=""`
+	text: string?;
 	--- `?=richtext ~= nil and richtext or true`
 	richtext: boolean?;
 	--- `?=textscaled ~= nil and textscaled or true`
@@ -125,6 +126,8 @@ export type textparams = {
 
 --- type describing imagelabel properties
 export type imageparams = {
+	--- `?=nil`
+	sprite: spriteparams?;
 	--- `?=content.none`
 	imagecontent: Content?;
 	--- `?=color3.fromrgb(255, 255, 255)`
@@ -135,6 +138,18 @@ export type imageparams = {
 	resamplemode: Enum.ResamplerMode?;
 	--- `?=stretch`
 	scaletype: Enum.ScaleType?;
+}
+
+--- type describing uilayout properties
+export type layoutparams = {
+	--- `?=center`
+	horizontalalignment: Enum.HorizontalAlignment?;
+	--- `?=center`
+	verticalalignment: Enum.VerticalAlignment?;
+	--- `?=horizontal`
+	filldirection: Enum.FillDirection?;
+	--- `?=layoutorder`
+	sortorder: Enum.SortOrder?;
 }
 
 --- type describing viewportframe properties
@@ -154,19 +169,13 @@ export type viewportparams = {
 }
 
 --- type describing tree constructor
-export type tree = {
+export type tree = {{
 	parent: Instance?;
 	name: string?;
-	instance: Instance?;
-	contains: { tree }?;
-}
-
---- type describing tree return result
-export type treeresult = {
-	instance: Instance?;
-	name: string?;
-	contains: { treeresult }
-}
+	copies: number?;
+	instance: Instance;
+	contains: tree?;
+}}
 
 type getcore = 
 &	((parameter: "PointsNotificationsActive") -> boolean)
@@ -374,166 +383,17 @@ function gui.resolvetextsize(viewportabsolutesize: Vector2, udim: UDim)
 	return (viewportabsolutesize.Y * udim.Scale) + udim.Offset
 end
 
---- applies uiaspectratioconstraint to guiobject \
---- searches for preexisting before instantiating a new one
-function gui.uiaspectratioconstraint(guiobject: GuiObject, aspectratio: number)
-	local preexisting = guiobject:FindFirstChildWhichIsA("UIAspectRatioConstraint")
-	if preexisting then
-		preexisting.AspectRatio = aspectratio
-
-		return preexisting
-	else
-		local uiaspectratioconstraint = Instance.new("UIAspectRatioConstraint")
-		uiaspectratioconstraint.AspectRatio = aspectratio
-		uiaspectratioconstraint.Parent = guiobject
-
-		return uiaspectratioconstraint
-	end
+--- writes alignment properties to `GuiObject`
+function gui.writealignment(guiobject: GuiObject, alignmentparams: alignmentparams)
+	guiobject.AnchorPoint = alignmentparams.anchorpoint or Vector2.new(0, 0)
+	guiobject.Position = alignmentparams.position or UDim2.fromScale(0, 0)
+	guiobject.Size = alignmentparams.size or UDim2.fromOffset(64, 64)
+	guiobject.LayoutOrder = alignmentparams.layoutorder or 0
+	guiobject.Rotation = alignmentparams.rotation or 0
 end
 
---- applies uicorner to guiobject \
---- searches for preexisting before instantiating a new one
-function gui.uicorner(guiobject: GuiObject, cornerradius: UDim)
-	local preexisting = guiobject:FindFirstChildWhichIsA("UICorner")
-	if preexisting then
-		preexisting.CornerRadius = cornerradius
-
-		return preexisting
-	else
-		local uicorner = Instance.new("UICorner")
-		uicorner.CornerRadius = cornerradius
-		uicorner.Parent = guiobject
-
-		return uicorner
-	end
-end
-
---- applies uigradient to guiobject \
---- searches for preexisting before instantiating a new one
-function gui.uigradient(guiobject: GuiObject, params: gradientparams)
-	local preexisting = guiobject:FindFirstAncestorWhichIsA("UIGradient")
-	if preexisting then
-		preexisting.Color = params.color or colorsequencewhite
-		preexisting.Enabled = if params.enabled ~= nil then params.enabled else true
-		preexisting.Offset = params.offset or Vector2.zero
-		preexisting.Rotation = params.rotation or 0
-		preexisting.Transparency = params.transparency or gui.numbersequences.zero
-
-		return preexisting
-	else
-		local uigradient = Instance.new("UIGradient")
-		uigradient.Color = params.color or colorsequencewhite
-		uigradient.Enabled = if params.enabled ~= nil then params.enabled else true
-		uigradient.Offset = params.offset or Vector2.zero
-		uigradient.Rotation = params.rotation or 0
-		uigradient.Transparency = params.transparency or gui.numbersequences.zero
-
-		uigradient.Parent = guiobject
-
-		return uigradient
-	end
-end
-
---- applies uigridlayout to guiobject \
---- searches for preexisting before instantiating a new one
-function gui.uigridlayout(guiobject: GuiObject, params: gridparams)
-	local padding = params.padding or 4
-	local cellpadding = UDim2.fromOffset(padding, padding)
-	local cellsize = UDim2.fromScale(1/params.width, 1/params.height) - cellpadding
-
-	local preexisting = guiobject:FindFirstChildWhichIsA("UIGridLayout")
-	if preexisting then
-		preexisting.CellPadding = cellpadding
-		preexisting.CellSize = cellsize
-		preexisting.FillDirectionMaxCells = params.width
-		preexisting.HorizontalAlignment = params.horizontalalignment or Enum.HorizontalAlignment.Center
-		preexisting.VerticalAlignment = params.verticalalignment or Enum.VerticalAlignment.Center
-		preexisting.FillDirection = params.filldirection or Enum.FillDirection.Horizontal
-		preexisting.SortOrder = params.sortorder or Enum.SortOrder.LayoutOrder
-
-		return preexisting
-	else
-		local uigridlayout = Instance.new("UIGridLayout")
-		uigridlayout.CellPadding = cellpadding
-		uigridlayout.CellSize = cellsize
-		uigridlayout.FillDirectionMaxCells = params.width
-		uigridlayout.HorizontalAlignment = params.horizontalalignment or Enum.HorizontalAlignment.Center
-		uigridlayout.VerticalAlignment = params.verticalalignment or Enum.VerticalAlignment.Center
-		uigridlayout.FillDirection = params.filldirection or Enum.FillDirection.Horizontal
-		uigridlayout.SortOrder = params.sortorder or Enum.SortOrder.LayoutOrder
-
-		uigridlayout.Parent = guiobject
-
-		return uigridlayout
-	end
-end
-
---- applies uilistlayout to guiobject \
---- searches for preexisting before instantiating a new one
-function gui.uilistlayout(guiobject: GuiObject, params: listparams)
-	local preexisting = guiobject:FindFirstChildWhichIsA("UIListLayout")
-	if preexisting then
-		preexisting.HorizontalAlignment = params.horizontalalignment or Enum.HorizontalAlignment.Center
-		preexisting.VerticalAlignment = params.verticalalignment or Enum.VerticalAlignment.Center
-		preexisting.FillDirection = params.filldirection or Enum.FillDirection.Horizontal
-		preexisting.SortOrder = params.sortorder or Enum.SortOrder.LayoutOrder
-
-		return preexisting
-	else
-		local uilistlayout = Instance.new("UIListLayout")
-		uilistlayout.Padding = UDim.new(0, params.padding or 4)
-		uilistlayout.HorizontalAlignment = params.horizontalalignment or Enum.HorizontalAlignment.Center
-		uilistlayout.VerticalAlignment = params.verticalalignment or Enum.VerticalAlignment.Center
-		uilistlayout.FillDirection = params.filldirection or Enum.FillDirection.Horizontal
-		uilistlayout.SortOrder = params.sortorder or Enum.SortOrder.LayoutOrder
-
-		uilistlayout.Parent = guiobject
-
-		return uilistlayout
-	end
-end
-
---- applies uipadding to guiobject \
---- searches for preexisting before instantiating a new one
-function gui.uipadding(guiobject: GuiObject, params: { ["top"|"bottom"|"left"|"right"]: UDim })
-	local preexisting = guiobject:FindFirstChildWhichIsA("UIPadding")
-	if preexisting then
-		preexisting.PaddingTop = params.top
-		preexisting.PaddingBottom = params.bottom
-		preexisting.PaddingLeft = params.left
-		preexisting.PaddingRight = params.right
-
-		return preexisting
-	else
-		local uipadding = Instance.new("UIPadding")
-		uipadding.PaddingTop = params.top
-		uipadding.PaddingBottom = params.bottom
-		uipadding.PaddingLeft = params.left
-		uipadding.PaddingRight = params.right
-		
-		uipadding.Parent = guiobject
-
-		return uipadding
-	end
-end
-
---- applies uistroke to guiobject
-function gui.uistroke(guiobject: GuiObject, params: strokeparams)
-	local uistroke = Instance.new("UIStroke")
-	uistroke.Color = params.color or Color3.fromRGB(0, 0, 0)
-	uistroke.ApplyStrokeMode = params.applystrokemode or Enum.ApplyStrokeMode.Contextual
-	uistroke.LineJoinMode = params.linejoinmode or Enum.LineJoinMode.Miter
-	uistroke.Thickness = params.thickness or 1
-	uistroke.Transparency = params.transparency or 0
-	uistroke.BorderOffset = params.borderoffset or UDim.new(0, 0)
-	uistroke.ZIndex = params.zindex or 1
-
-	uistroke.Parent = guiobject
-
-	return uistroke
-end
-
-function gui.setappearance(guiobject: GuiObject, appearance: appearance)
+--- writes appearance properties to `GuiObject`
+function gui.writeappearance(guiobject: GuiObject, appearance: appearance)
 	guiobject.BackgroundColor3 = appearance.backgroundcolor or Color3.fromRGB(255, 255, 255)
 	guiobject.BackgroundTransparency = appearance.backgroundtransparency or 1
 	guiobject.BorderSizePixel = appearance.bordersizepixel or 0
@@ -541,15 +401,11 @@ function gui.setappearance(guiobject: GuiObject, appearance: appearance)
 	guiobject.ZIndex = appearance.zindex or 1
 end
 
-function gui.setalignment(guiobject: GuiObject, alignment: alignment)
-	guiobject.AnchorPoint = alignment.anchorpoint or Vector2.new(0, 0)
-	guiobject.Position = alignment.position or UDim2.fromScale(0, 0)
-	guiobject.Size = alignment.size or UDim2.fromOffset(64, 64)
-	guiobject.LayoutOrder = alignment.layoutorder or 0
-	guiobject.Rotation = alignment.rotation or 0
-end
-
-function gui.setimage(guiimageobject: ImageButton|ImageLabel, imageparams: imageparams)
+--- writes image properties to `ImageButton|ImageLabel`
+function gui.writeimage(guiimageobject: ImageButton|ImageLabel, imageparams: imageparams)
+	if imageparams.sprite then
+		gui.writesprite(guiimageobject, imageparams.sprite)
+	end
 	guiimageobject.ImageContent = imageparams.imagecontent or Content.none
 	guiimageobject.ImageColor3 = imageparams.imagecolor or Color3.fromRGB(255, 255, 255)
 	guiimageobject.ImageTransparency = imageparams.imagetransparency or 0
@@ -557,7 +413,43 @@ function gui.setimage(guiimageobject: ImageButton|ImageLabel, imageparams: image
 	guiimageobject.ScaleType = imageparams.scaletype or Enum.ScaleType.Stretch
 end
 
-function gui.settextparams(guitextobject: TextButton|TextLabel, textparams: textparams)
+--- writes layout properties to `UIGridLayout|UIListLayout`
+function gui.writelayout(uilayoutobject: UIGridLayout|UIListLayout, layoutparams: layoutparams)
+	uilayoutobject.HorizontalAlignment = layoutparams.horizontalalignment or Enum.HorizontalAlignment.Center
+	uilayoutobject.VerticalAlignment = layoutparams.verticalalignment or Enum.VerticalAlignment.Center
+	uilayoutobject.FillDirection = layoutparams.filldirection or Enum.FillDirection.Horizontal
+	uilayoutobject.SortOrder = layoutparams.sortorder or Enum.SortOrder.LayoutOrder
+end
+
+--- writes sprite properties to `ImageButton|ImageLabel` \
+--- sprite coordinates are zero-indexed
+function gui.writesprite(imagelabel: ImageButton|ImageLabel, spriteparams: spriteparams?)
+	if spriteparams then
+		--- set imagecontent
+		local sheet = spriteparams.sheet
+		if type(sheet) == "number" then
+			imagelabel.ImageContent = Content.fromAssetId(sheet)
+		elseif type(sheet) == "string" then
+			imagelabel.ImageContent = Content.fromUri(sheet)
+		elseif typeof(sheet) == "Content" then
+			imagelabel.ImageContent = sheet
+		end
+
+		--- set size n offset
+		local size = spriteparams.size
+		imagelabel.ImageRectSize = size
+		imagelabel.ImageRectOffset = spriteparams.position * size
+	else
+		--- reset
+		imagelabel.ImageContent = Content.none
+		imagelabel.ImageRectSize = Vector2.zero
+		imagelabel.ImageRectOffset = Vector2.zero
+	end
+end
+
+--- writes text properties to `GuiObject`
+function gui.writetext(guitextobject: TextButton|TextLabel, textparams: textparams)
+	guitextobject.Text = textparams.text or ""
 	guitextobject.RichText = if textparams.richtext ~= nil then textparams.richtext else true
 	guitextobject.TextScaled = if textparams.textscaled ~= nil then textparams.textscaled else false
 	guitextobject.Font = textparams.font or Enum.Font.Arimo
@@ -568,7 +460,8 @@ function gui.settextparams(guitextobject: TextButton|TextLabel, textparams: text
 	guitextobject.TextYAlignment = textparams.textyalignment or Enum.TextYAlignment.Center
 end
 
-function gui.setviewportparams(viewportframe: ViewportFrame, viewportparams: viewportparams)
+--- writes viewport properties to `GuiObject`
+function gui.writeviewport(viewportframe: ViewportFrame, viewportparams: viewportparams)
 	viewportframe.LightColor = viewportparams.lightcolor or Color3.fromRGB(255, 255, 255)
 	viewportframe.LightDirection = viewportparams.lightdirection or Vector3.new(-0.707, -1, 0.707)
 	viewportframe.Ambient = viewportparams.ambient or Color3.fromRGB(148, 148, 148)
@@ -577,127 +470,222 @@ function gui.setviewportparams(viewportframe: ViewportFrame, viewportparams: vie
 	viewportframe.ImageTransparency = viewportparams.imagetransparency or 0
 end
 
---- creates a button (textbutton)
-function gui.createbutton(params: appearance & alignment)
+--- creates a `TextButton`
+function gui.createbutton(params: appearance & alignmentparams)
 	local textbutton = Instance.new("TextButton")
 
-	gui.setappearance(textbutton, params)
-	gui.setalignment(textbutton, params)
+	gui.writeappearance(textbutton, params)
+	gui.writealignment(textbutton, params)
 	
 	textbutton.Text = ""
 
 	return textbutton
 end
 
---- creates a frame
-function gui.createframe(params: appearance & alignment)
+--- creates a `Frame`
+function gui.createframe(params: appearance & alignmentparams)
 	local frame = Instance.new("Frame")
 
-	gui.setappearance(frame, params)
-	gui.setalignment(frame, params)
+	gui.writeappearance(frame, params)
+	gui.writealignment(frame, params)
 
 	return frame
 end
 
---- creates an imagelabel
-function gui.createimagelabel(params: appearance & alignment & imageparams)
+--- creates an `ImageLabel`
+function gui.createimagelabel(params: appearance & alignmentparams & imageparams)
 	local imagelabel = Instance.new("ImageLabel")
 
-	gui.setappearance(imagelabel, params)
-	gui.setalignment(imagelabel, params)
-	gui.setimage(imagelabel, params)
+	gui.writeappearance(imagelabel, params)
+	gui.writealignment(imagelabel, params)
+	gui.writeimage(imagelabel, params)
 
 	return imagelabel
 end
 
---- creates a textlabel
-function gui.createtextlabel(params: appearance & alignment & textparams)
+--- creates a `TextLabel`
+function gui.createtextlabel(params: appearance & alignmentparams & textparams)
 	local textlabel = Instance.new("TextLabel")
 
-	gui.setappearance(textlabel, params)
-	gui.setalignment(textlabel, params)
-	gui.settextparams(textlabel, params)
+	gui.writeappearance(textlabel, params)
+	gui.writealignment(textlabel, params)
+	gui.writetext(textlabel, params)
 	
 	textlabel.Text = ""
-	textlabel.RichText = true
-	textlabel.TextScaled = false
 
 	return textlabel
 end
 
---- creates a viewportframe
-function gui.createviewportframe(params: appearance & alignment & viewportparams)
+--- creates a `UIAspectRatioConstraint`
+function gui.createuiaspectratioconstraint(params: {
+	aspectratio: number;
+})
+	local uiaspectratioconstraint = Instance.new("UIAspectRatioConstraint")
+	uiaspectratioconstraint.AspectRatio = params.aspectratio
+
+	return uiaspectratioconstraint
+end
+
+--- creates a `UICorner`
+function gui.createuicorner(cornerradius: UDim)
+	local uicorner = Instance.new("UICorner")
+	uicorner.CornerRadius = cornerradius
+
+	return uicorner
+end
+
+--- creates a `UIGradient`
+function gui.createuigradient(params: gradientparams)
+	local uigradient = Instance.new("UIGradient")
+	uigradient.Color = params.color or colorsequencewhite
+	uigradient.Enabled = if params.enabled ~= nil then params.enabled else true
+	uigradient.Offset = params.offset or Vector2.zero
+	uigradient.Rotation = params.rotation or 0
+	uigradient.Transparency = params.transparency or gui.numbersequences.zero
+
+	return uigradient
+end
+
+--- creates a `UIGridLayout`
+function gui.createuigridlayout(params: gridparams)
+	local padding = params.padding or 4
+	local cellpadding = UDim2.fromOffset(padding, padding)
+	local cellsize = UDim2.fromScale(1/params.width, 1/params.height) - cellpadding
+	
+	local uigridlayout = Instance.new("UIGridLayout")
+	uigridlayout.CellPadding = cellpadding
+	uigridlayout.CellSize = cellsize
+	uigridlayout.FillDirectionMaxCells = params.width
+
+	gui.writelayout(uigridlayout, params)
+
+	return uigridlayout
+end
+
+--- creates a `UIListLayout`
+function gui.createuilistlayout(params: listparams)
+	local uilistlayout = Instance.new("UIListLayout")
+	uilistlayout.Padding = UDim.new(0, params.padding or 4)
+	
+	gui.writelayout(uilistlayout, params)
+
+	return uilistlayout
+end
+
+--- creates a `UIPadding`
+function gui.createuipadding(params: { ["top"|"bottom"|"left"|"right"]: UDim })
+	local uipadding = Instance.new("UIPadding")
+	uipadding.PaddingTop = params.top
+	uipadding.PaddingBottom = params.bottom
+	uipadding.PaddingLeft = params.left
+	uipadding.PaddingRight = params.right
+
+	return uipadding
+end
+
+--- creates a `UIStroke`
+function gui.createuistroke(params: strokeparams)
+	local uistroke = Instance.new("UIStroke")
+	uistroke.Color = params.color or Color3.fromRGB(0, 0, 0)
+	uistroke.ApplyStrokeMode = params.applystrokemode or Enum.ApplyStrokeMode.Contextual
+	uistroke.LineJoinMode = params.linejoinmode or Enum.LineJoinMode.Miter
+	uistroke.Thickness = params.thickness or 1
+	uistroke.Transparency = params.transparency or 0
+	uistroke.BorderOffset = params.borderoffset or UDim.new(0, 0)
+	uistroke.ZIndex = params.zindex or 1
+
+	return uistroke
+end
+
+--- creates a `ViewportFrame`
+function gui.createviewportframe(params: appearance & alignmentparams & viewportparams)
 	local viewportframe = Instance.new("ViewportFrame")
 
-	gui.setappearance(viewportframe, params)
-	gui.setalignment(viewportframe, params)
-	gui.setviewportparams(viewportframe, params)
+	gui.writeappearance(viewportframe, params)
+	gui.writealignment(viewportframe, params)
+	gui.writeviewport(viewportframe, params)
 
 	return viewportframe
 end
 
---- populates `target` with `count` clones of `source`
-function gui.fill<T>(target: GuiObject, source: GuiObject & T, count: number)
-	local result = table.create(count)::{typeof(source)}
-
-	for i = 1, count do
-		local clone = source:Clone()
-		clone.Name = tostring(i)
-		clone.LayoutOrder = i
-		clone.Parent = target
-
-		table.insert(result, clone)
-	end
-
-	return result
-end
-
 --- creates a tree of instanced guiobjects
-function gui.tree(t: tree)
-	local parent = t.parent
-	local instance = t.instance
-	local contains = t.contains
-	
-	local result: treeresult = {
-		instance = instance;
-		contains = {};
-	}
-
-	if parent and instance then
-		instance.Name = t.name or instance.Name
-		instance.Parent = parent
-
-		result.name = instance.Name
-
-		if contains then
-			for _, thing in ipairs(contains) do
-				thing.parent = instance
-
-				local reentryresult = gui.tree(thing)
-				table.insert(result.contains, reentryresult)
-			end
-		end
-	end
-
-	return result
-end
-
---- queries `gui.tree()` return type
-function gui.query(r: treeresult, name: string, isa: string)
+--- 
+--- ```luau
+--- local grid3x3 = gui.createtree({{
+--- 	parent = script;
+--- 	name = "grid3x3";
+--- 	instance = gui.createframe({
+--- 		backgroundtransparency = 0;
+--- 		bordersizepixel = 0;
+--- 		anchorpoint = Vector2.zero;
+--- 		position = UDim2.fromScale(0, 0);
+--- 		size = UDim2.fromScale(0.5, 0.5);
+--- 	});
+--- 	contains = {
+--- 		{
+--- 			instance = gui.createuigridlayout({
+--- 				width = 3;
+--- 				height = 3;
+--- 				padding = 0;
+--- 			});
+--- 		};
+--- 		{
+--- 			name = "cell";
+--- 			copies = 9;
+--- 			instance = gui.createframe({
+--- 				backgroundtransparency = 0;
+--- 				bordersizepixel = 0;
+--- 			});
+--- 		};
+--- 	};
+--- }})
+--- ```
+function gui.createtree(t: tree)
 	local result = {}
 
-	local instance = r.instance
-	if instance then
-		if instance.Name == name and instance:IsA(isa) then
-			table.insert(result, instance)
+	for _, branch in ipairs(t) do
+		local parent = branch.parent
+		local copies = branch.copies
+		local instance = branch.instance
+		local contains = branch.contains
+
+		for i = 1, copies or 1 do
+			local copy = instance:Clone()
+			copy.Name = branch.name or instance.Name
+			copy.Parent = parent
+
+			if copy:IsA("GuiObject") then
+				copy.LayoutOrder = i
+			end
+
+			if contains then
+				for _, rebranch in ipairs(contains) do
+					rebranch.parent = copy
+				end
+			end
+
+			table.insert(result, {
+				instance = copy;
+				contains = gui.createtree(contains or {})
+			})
 		end
 	end
-	local contains = r.contains
-	if contains then
-		for i, thing in ipairs(contains) do
-			local reresult = gui.query(thing, name, isa)
-			table.move(reresult, 1, #reresult, #result + 1, result)
+
+	return result
+end
+
+--- queries `gui.createtree(...)` return type
+function gui.treequery(r: typeof(gui.createtree(...)), name: string)
+	local result = table.create(#r)::{Instance}
+
+	for _, branch in ipairs(r) do
+		local instance = branch.instance
+		if instance.Name == name then
+			table.insert(result, instance)
 		end
+
+		local reresult = gui.treequery(branch.contains, name)
+		table.move(reresult, 1, #reresult, #result + 1, result)
 	end
 
 	return result
@@ -781,32 +769,6 @@ function gui.connectbutton(button: GuiButton, functions: buttonfunctions)
 	end
 
 	return connections
-end
-
---- applies `sprite` to `imagelabel` \
---- sprite coordinates are zero-indexed
-function gui.sprite(imagelabel: ImageLabel, sprite: { position: Vector2, size: Vector2, sheet: number|string|Content }?)
-	if sprite then
-		--- set imagecontent
-		local sheet = sprite.sheet
-		if type(sheet) == "number" then
-			imagelabel.ImageContent = Content.fromAssetId(sheet)
-		elseif type(sheet) == "string" then
-			imagelabel.ImageContent = Content.fromUri(sheet)
-		elseif typeof(sheet) == "Content" then
-			imagelabel.ImageContent = sheet
-		end
-
-		--- set size n offset
-		local size = sprite.size
-		imagelabel.ImageRectSize = size
-		imagelabel.ImageRectOffset = sprite.position * size
-	else
-		--- reset
-		imagelabel.ImageContent = Content.none
-		imagelabel.ImageRectSize = Vector2.zero
-		imagelabel.ImageRectOffset = Vector2.zero
-	end
 end
 
 --- scrolls textlabel text with `speed (?=100)` and initially-visible `graphemes (?=0)` \
