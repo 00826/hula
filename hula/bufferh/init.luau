@@ -138,6 +138,24 @@ function bufferh.writeunitvector(b: buffer, offset: number, value: Vector3)
 	buffer.writeu8(b, offset + 2, math.map(value.Z, -1, 1, 0, 255))
 end
 
+--- reads Vector3i16 from buffer
+function bufferh.readvector3i16(b: buffer, offset: number, precision: number)
+	return Vector3.new(
+		buffer.readi16(b, offset),
+		buffer.readi16(b, offset + 2),
+		buffer.readi16(b, offset + 4)
+	) * (1 / precision)
+end
+
+--- writes Vector3i16 to buffer
+function bufferh.writevector3i16(b: buffer, offset: number, value: Vector3, precision: number)
+	value *= precision
+
+	buffer.writei16(b, offset, value.X)
+	buffer.writei16(b, offset + 2, value.Y)
+	buffer.writei16(b, offset + 4, value.Z)
+end
+
 --- reads Vector3i24 from buffer
 function bufferh.readvector3i24(b: buffer, offset: number, precision: number)
 	return Vector3.new(

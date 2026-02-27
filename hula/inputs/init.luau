@@ -1,9 +1,9 @@
 --!strict
 
-local RunService = game:GetService("RunService")
-
+local ContextActionService = game:GetService("ContextActionService")
 local GuiService = game:GetService("GuiService")
 local GamepadService = game:GetService("GamepadService")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 
 export type keybind = {
@@ -26,6 +26,7 @@ local inputs = {
 		[Enum.UserInputType.MouseButton1] = Enum.KeyCode.MouseLeftButton;
 		[Enum.UserInputType.MouseButton2] = Enum.KeyCode.MouseRightButton;
 		[Enum.UserInputType.MouseButton3] = Enum.KeyCode.MouseMiddleButton;
+		[Enum.UserInputType.MouseWheel] = Enum.KeyCode.MouseWheel;
 	};
 
 	--- `Enum.UserInputType -> Enum.PreferredInput` conversion table \
@@ -80,6 +81,17 @@ function inputs.keybind(inputobject: InputObject, keybinds: { keybind }): keybin
 	end
 end
 
+--- returns first keybind whose `key` matches `key`
+function inputs.keybindfromkey(key: index<keybind, "key">, keybinds: { keybind }): keybind?
+	for i, keybind in ipairs(keybinds) do
+		if keybind.key == key then
+			return keybind
+		end
+	end
+
+	return nil
+end
+
 --- rebinds keybinds wrt preferredinput
 function inputs.rebind(preferredinput: Enum.PreferredInput, keybinds: { keybind })
 	for i, keybind in ipairs(keybinds) do
@@ -87,6 +99,16 @@ function inputs.rebind(preferredinput: Enum.PreferredInput, keybinds: { keybind 
 		local t = keybind.preferredinputbinds[preferredinput] or {}
 		table.move(t, 1, #t, 1, keybind.value)
 	end
+end
+
+--- equivalent to `ContextActionService:BindActionAtPriority(name, f, createtouchbutton, prioritylevel, ...)`
+function inputs.bindactionatpriority(name: string, f: (name: string, inputstate: Enum.UserInputState, inputobject: InputObject) -> Enum.ContextActionResult?, createtouchbutton: boolean, prioritylevel: number, ...: Enum.KeyCode | Enum.UserInputType)
+	ContextActionService:BindActionAtPriority(name, f, createtouchbutton, prioritylevel, ...)
+end
+
+--- equivalent to `ContextActionService:UnbindAction(name)`
+function inputs.unbindaction(name: string)
+	ContextActionService:UnbindAction(name)
 end
 
 --- returns `UserInputService.InputBegan`
@@ -102,6 +124,21 @@ end
 --- returns `UserInputService.InputEnded`
 function inputs.ended()
 	return UserInputService.InputEnded
+end
+
+--- returns `UserInputService.TouchStarted`
+function inputs.touchstarted()
+	return UserInputService.TouchStarted
+end
+
+--- returns `UserInputService.TouchMoved`
+function inputs.touchmoved()
+	return UserInputService.TouchMoved
+end
+
+--- returns `UserInputService.TouchEnded`
+function inputs.touchended()
+	return UserInputService.TouchEnded
 end
 
 --- returns `UserInputService.TouchEnabled`

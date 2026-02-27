@@ -279,6 +279,16 @@ function vector3h.israyintersectingbox(rayposition: Vector3, raydirection: Vecto
 	return if tmax < 0 then false elseif tmin > tmax then false else true
 end
 
+--- returns whether axis-aligned boxes `a` and `b` intersect
+function vector3h.isboxintersectingbox(aposition: Vector3, asize: Vector3, bposition: Vector3, bsize: Vector3)
+	local abs = 2 * vector.abs(aposition - bposition::any)
+	local sum = asize + bsize
+
+	return	abs.x < sum.x
+		and abs.y < sum.y
+		and abs.z < sum.z
+end
+
 --- returns `point` transformed to objectspace of `position, lookvector, upvector(?=Vector3.yAxis)` \
 --- eev is the goat
 function vector3h.pointtoobjectspace(point: Vector3, position: Vector3, lookvector: Vector3, upvector: Vector3?)

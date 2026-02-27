@@ -13,6 +13,7 @@ local TweenService = game:GetService("TweenService")
 --- Instance library extension
 local instanceh = {
 	accessoryflag = "h_accessory";
+	accessorycontainerflag = "h_accessories";
 	appearanceflag = "h_appearancedescription";
 	appearancemap = {
 		accessoryproperties = {
@@ -841,6 +842,11 @@ function instanceh.setcollisiongroup(target: Instance, collisiongroup: string)
 	end
 end
 
+--- equivalent to `PhysicsService:RegisterCollisionGroup(name)`
+function instanceh.registercollisiongroup(name: string)
+	PhysicsService:RegisterCollisionGroup(name)
+end
+
 --- bulk register-and-set-collidable `PhysicsService` collision groups
 function instanceh.collisiongroupbulksetcollidable(t: {[string]: {[string]: boolean}})
 	assert(isserver, "instanceh.registercollisiongroups() can only be called on server")
@@ -1310,7 +1316,7 @@ end
 --- returns an empty appearance description
 function instanceh.emptydescription()
 	return {
-		Accessories = table.create(0);
+		Accessories = table.create(0)::{number|string};
 		Face = "rbxasset://textures/face.png";
 
 		HeadColor = "a3a2a5";

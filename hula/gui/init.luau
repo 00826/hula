@@ -4,7 +4,6 @@ local GuiService = game:GetService("GuiService")
 local StarterGui = game:GetService("StarterGui")
 local TextChatService = game:GetService("TextChatService")
 local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
 
 local colorsequencewhite = ColorSequence.new(Color3.fromRGB(255, 255, 255))
 
@@ -90,6 +89,10 @@ export type listparams = {
 export type buttonparams = {
 	--- `?=autobuttoncolor ~= nil and autobuttoncolor or false`
 	autobuttoncolor: boolean?;
+	--- `?=true`
+	active: boolean?;
+	--- `?=true`
+	selectable: boolean?;
 }
 
 --- type describing image properties
@@ -138,6 +141,10 @@ export type imageparams = {
 	resamplemode: Enum.ResamplerMode?;
 	--- `?=stretch`
 	scaletype: Enum.ScaleType?;
+	--- `?=Rect.new(0, 0, 0, 0)`;
+	slicecenter: Rect?;
+	--- `?=1`;
+	slicescale: number?;
 }
 
 --- type describing uilayout properties
@@ -173,6 +180,7 @@ export type tree = {{
 	parent: Instance?;
 	name: string?;
 	copies: number?;
+	tags: {string}?;
 	instance: Instance;
 	contains: tree?;
 }}
@@ -267,47 +275,10 @@ type rbxthumb =
 &	((thumbnailtype: "GroupIcon", id: number, size: thumbnailsize_150_420) -> string)
 &	((thumbnailtype: "Outfit", id: number, size: thumbnailsize_150_420) -> string)
 
-export type buttonfunctions = {
-	--- `MouseButton1Down`
-	clickdown: (x: number, y: number) -> ()?;
-	--- `MouseButton1Up`
-	clickup: (x: number, y: number) -> ()?;
-	--- `MouseButton2Down`
-	rclickdown: (x: number, y: number) -> ()?;
-	--- `MouseButton2Up`
-	rclickup: (x: number, y: number) -> ()?;
-	--- `MouseEnter` \
-	--- `SelectionGained`
-	enter: (x: number, y: number) -> ()?;
-	--- `MouseLeave` \
-	--- `SelectionLost`
-	leave: (x: number, y: number) -> ()?;
-	--- `MouseMoved`
-	move: (x: number, y: number) -> ()?;
-	--- `MouseWheelForward`
-	scrollup: (x: number, y: number) -> ()?;
-	--- `MouseWheelBackward`
-	scrolldown: (x: number, y: number) -> ()?;
-}
-
 --- ### gui.luau
 ---
 --- ui helper functions
 local gui = {
-	--- shorthand `gui.setalignment()` alignments
-	alignments = {
-		topleft = { anchorpoint = Vector2.zero; position = UDim2.fromScale(0, 0); };
-		top = { anchorpoint = Vector2.new(0.5, 0); position = UDim2.fromScale(0.5, 0); };
-		topright = { anchorpoint = Vector2.xAxis; position = UDim2.fromScale(1, 0); };
-
-		centerleft = { anchorpoint = Vector2.new(0, 0.5); position = UDim2.fromScale(0, 0.5); };
-		center = { anchorpoint = Vector2.new(0.5, 0.5); position = UDim2.fromScale(0.5, 0.5); };
-		centerright = { anchorpoint = Vector2.new(1, 0.5); position = UDim2.fromScale(1, 0.5); };
-
-		bottomleft = { anchorpoint = Vector2.yAxis; position = UDim2.fromScale(0, 1); };
-		bottom = { anchorpoint = Vector2.new(0.5, 1); position = UDim2.fromScale(0.5, 1); };
-		bottomright = { anchorpoint = Vector2.one; position = UDim2.fromScale(1, 1); };
-	};
 	--- shorthand numbersequences
 	numbersequences = {
 		zero = NumberSequence.new(0.000);
@@ -326,6 +297,8 @@ local gui = {
 			NumberSequenceKeypoint.new(1.000, 0),
 		});
 	};
+	--- shorthand `Rect.new(0, 0, 0, 0)`
+	rectzero = Rect.new(0, 0, 0, 0);
 	--- `gui.resolvetextsize()` textscale udims
 	textscaleudims = {
 		smallest = UDim.new(0.010, 10);
@@ -341,6 +314,9 @@ local gui = {
 		[Enum.PreferredTextSize.Larger] = UDim.new(0.008, 4);
 		[Enum.PreferredTextSize.Largest] = UDim.new(0.012, 6);
 	};
+
+	treecopyflag = "h_treecopy";
+	treetagsflag = "h_treetags";
 }
 
 --- returns `GuiService.PreferredTextSize`
@@ -378,6 +354,21 @@ function gui.readguiinset()
 	return GuiService:GetGuiInset()
 end
 
+--- returns `GuiService.TopbarInset`
+function gui.readtopbarinset()
+	return GuiService.TopbarInset
+end
+
+--- returns `workspace.CurrentCamera.ViewportSize`
+function gui.readviewportsize()
+	return workspace.CurrentCamera.ViewportSize
+end
+
+--- returns `workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize")`
+function gui.viewportsizechanged()
+	return workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize")
+end
+
 --- returns `(viewportabsolutesize.Y * udim.Scale) + udim.Offset`
 function gui.resolvetextsize(viewportabsolutesize: Vector2, udim: UDim)
 	return (viewportabsolutesize.Y * udim.Scale) + udim.Offset
@@ -401,16 +392,28 @@ function gui.writeappearance(guiobject: GuiObject, appearance: appearance)
 	guiobject.ZIndex = appearance.zindex or 1
 end
 
+--- writes button properties to `GuiButton`
+function gui.writebutton(guibutton: GuiButton, button: buttonparams)
+	guibutton.AutoButtonColor = if button.autobuttoncolor ~= nil then button.autobuttoncolor else false
+	guibutton.Active = if button.active ~= nil then button.active else true
+	guibutton.Selectable = if button.selectable ~= nil then button.selectable else true
+end
+
 --- writes image properties to `ImageButton|ImageLabel`
 function gui.writeimage(guiimageobject: ImageButton|ImageLabel, imageparams: imageparams)
 	if imageparams.sprite then
 		gui.writesprite(guiimageobject, imageparams.sprite)
+	else
+		guiimageobject.ImageContent = imageparams.imagecontent or Content.none
 	end
-	guiimageobject.ImageContent = imageparams.imagecontent or Content.none
 	guiimageobject.ImageColor3 = imageparams.imagecolor or Color3.fromRGB(255, 255, 255)
 	guiimageobject.ImageTransparency = imageparams.imagetransparency or 0
 	guiimageobject.ResampleMode = imageparams.resamplemode or Enum.ResamplerMode.Default
 	guiimageobject.ScaleType = imageparams.scaletype or Enum.ScaleType.Stretch
+	if imageparams.scaletype == Enum.ScaleType.Slice then
+		guiimageobject.SliceCenter = imageparams.slicecenter or gui.rectzero
+		guiimageobject.SliceScale = imageparams.slicescale or 1
+	end
 end
 
 --- writes layout properties to `UIGridLayout|UIListLayout`
@@ -471,11 +474,12 @@ function gui.writeviewport(viewportframe: ViewportFrame, viewportparams: viewpor
 end
 
 --- creates a `TextButton`
-function gui.createbutton(params: appearance & alignmentparams)
+function gui.createbutton(params: appearance & alignmentparams & buttonparams)
 	local textbutton = Instance.new("TextButton")
 
 	gui.writeappearance(textbutton, params)
 	gui.writealignment(textbutton, params)
+	gui.writebutton(textbutton, params)
 	
 	textbutton.Text = ""
 
@@ -510,8 +514,6 @@ function gui.createtextlabel(params: appearance & alignmentparams & textparams)
 	gui.writeappearance(textlabel, params)
 	gui.writealignment(textlabel, params)
 	gui.writetext(textlabel, params)
-	
-	textlabel.Text = ""
 
 	return textlabel
 end
@@ -608,6 +610,33 @@ function gui.createviewportframe(params: appearance & alignmentparams & viewport
 	return viewportframe
 end
 
+--- creates a stepped numbersequence \
+--- `number padding(?=0.001)`: appended to keypoint time to avoid certain inconsistencies
+function gui.createsteppednumbersequence(steps: number, padding: number?)
+	local keypoints = table.create(2*steps)::{NumberSequenceKeypoint}
+
+	padding = padding or 0.001
+	local step = 1 / steps
+	for i = 1, steps do
+		local value = i * step
+		local a = ((i - 1) * step) + padding
+		local b = (i * step) - padding
+
+		if i == 1 then
+			table.insert(keypoints, NumberSequenceKeypoint.new(0, value))
+			table.insert(keypoints, NumberSequenceKeypoint.new(b, value))
+		elseif i == steps then
+			table.insert(keypoints, NumberSequenceKeypoint.new(a, value))
+			table.insert(keypoints, NumberSequenceKeypoint.new(1, value))
+		else
+			table.insert(keypoints, NumberSequenceKeypoint.new(a, value))
+			table.insert(keypoints, NumberSequenceKeypoint.new(b, value))
+		end
+	end
+
+	return NumberSequence.new(keypoints)
+end
+
 --- creates a tree of instanced guiobjects
 --- 
 --- ```luau
@@ -632,6 +661,7 @@ end
 --- 		{
 --- 			name = "cell";
 --- 			copies = 9;
+---				tags = {"cell"};
 --- 			instance = gui.createframe({
 --- 				backgroundtransparency = 0;
 --- 				bordersizepixel = 0;
@@ -646,13 +676,19 @@ function gui.createtree(t: tree)
 	for _, branch in ipairs(t) do
 		local parent = branch.parent
 		local copies = branch.copies
+		local tags = branch.tags
 		local instance = branch.instance
 		local contains = branch.contains
+
+		local tagstring = table.concat(tags or {}, ",")
 
 		for i = 1, copies or 1 do
 			local copy = instance:Clone()
 			copy.Name = branch.name or instance.Name
 			copy.Parent = parent
+
+			copy:SetAttribute(gui.treecopyflag, i)
+			copy:SetAttribute(gui.treetagsflag, tagstring)
 
 			if copy:IsA("GuiObject") then
 				copy.LayoutOrder = i
@@ -675,16 +711,35 @@ function gui.createtree(t: tree)
 end
 
 --- queries `gui.createtree(...)` return type
-function gui.treequery(r: typeof(gui.createtree(...)), name: string)
+function gui.treequery(r: typeof(gui.createtree(...)), params: {
+	name: string?;
+	copy: number?;
+	tags: {string}?;
+})
 	local result = table.create(#r)::{Instance}
 
 	for _, branch in ipairs(r) do
 		local instance = branch.instance
-		if instance.Name == name then
+
+		local copymatch = if params.copy ~= nil then instance:GetAttribute(gui.treecopyflag) == params.copy else true
+		local namematch = if params.name ~= nil then instance.Name == params.name else true
+		local tagmatch = true
+		if params.tags ~= nil then
+			tagmatch = false
+			local t = string.split((instance:GetAttribute(gui.treetagsflag)::any) or "", ",")
+			for _, tag in ipairs(params.tags) do
+				if table.find(t, tag) then
+					tagmatch = true
+					break
+				end
+			end
+		end
+
+		if copymatch and namematch and tagmatch then
 			table.insert(result, instance)
 		end
 
-		local reresult = gui.treequery(branch.contains, name)
+		local reresult = gui.treequery(branch.contains, params)
 		table.move(reresult, 1, #reresult, #result + 1, result)
 	end
 
@@ -726,46 +781,23 @@ function gui.textchatmessage(message: string, channel: string?)
 	error(`"{channel}" is not a text channel of TextChatService.TextChannels`)
 end
 
---- connects button events to `guibutton`
-function gui.connectbutton(button: GuiButton, functions: buttonfunctions)
-	local connections = table.create(11)
+--- returns `UDim2.fromOffset(v.X, v.Y)`
+function gui.udim2fromvector(v: Vector2|Vector3)
+	return UDim2.fromOffset(v.X, v.Y)
+end
 
-	if functions.clickdown then
-		table.insert(connections, button.MouseButton1Down:Connect(functions.clickdown))
-	end
-	if functions.clickup then
-		table.insert(connections, button.MouseButton1Up:Connect(functions.clickup))
-	end
+--- connects `began/changed/ended` functions to `guibutton.InputBegan/InputBegan/InputBegan` events
+function gui.input(guiobject: GuiObject, functions: { ["began"|"changed"|"ended"]: (inputobject: InputObject) -> () })
+	local connections = {}
 
-	if functions.rclickdown then
-		table.insert(connections, button.MouseButton2Down:Connect(functions.rclickdown))
+	if functions.began then
+		connections.began = guiobject.InputBegan:Connect(functions.began)
 	end
-	if functions.rclickup then
-		table.insert(connections, button.MouseButton2Up:Connect(functions.rclickup))
+	if functions.changed then
+		connections.changed = guiobject.InputChanged:Connect(functions.changed)
 	end
-
-	if functions.enter then
-		table.insert(connections, button.MouseEnter:Connect(functions.enter))
-		table.insert(connections, button.SelectionGained:Connect(function()
-			local vec2 = UserInputService:GetMouseLocation()
-			functions.enter(vec2.X, vec2.Y)
-		end))
-	end
-	if functions.leave then
-		table.insert(connections, button.MouseLeave:Connect(functions.leave))
-		table.insert(connections, button.SelectionLost:Connect(function()
-			local vec2 = UserInputService:GetMouseLocation()
-			functions.leave(vec2.X, vec2.Y)
-		end))
-	end
-	if functions.move then
-		table.insert(connections, button.MouseMoved:Connect(functions.move))
-	end
-	if functions.scrollup then
-		table.insert(connections, button.MouseWheelForward:Connect(functions.scrollup))
-	end
-	if functions.scrolldown then
-		table.insert(connections, button.MouseWheelBackward:Connect(functions.scrolldown))
+	if functions.ended then
+		connections.ended = guiobject.InputEnded:Connect(functions.ended)
 	end
 
 	return connections
@@ -811,8 +843,20 @@ function gui.isvisibleonscreen(guiobject: GuiObject)
 	end
 end
 
+--- returns whether `absoluteposition` is within bounds of box defined by `absoluteposition` and `absolutesize`
+function gui.isinbounds(absoluteposition: Vector2, absolutesize: Vector2, inputobject: InputObject)
+	local bottomright = absoluteposition + absolutesize
+	local inputposition = inputobject.Position
+	local px, py = inputposition.X, inputposition.Y
+
+	return px >= absoluteposition.X
+		and py >= absoluteposition.Y
+		and px <= bottomright.X
+		and py <= bottomright.Y
+end
+
 --- returns the equivalent of `BasePlayerGui:GetWhitelistedGuiObjectsAtPosition()`
-function gui.findhovertarget(list: {GuiObject}, insetmouselocation: Vector2): GuiObject?
+function gui.getguiobjectsatposition(list: {GuiObject}, insetmouselocation: Vector2): {GuiObject}
 	local mousex, mousey = insetmouselocation.X, insetmouselocation.Y
 
 	local inbounds = table.create(#list) :: {GuiObject}
@@ -842,7 +886,7 @@ function gui.findhovertarget(list: {GuiObject}, insetmouselocation: Vector2): Gu
 		return dista < distb
 	end)
 	
-	return inbounds[1]
+	return inbounds
 end
 
 return gui
