@@ -244,9 +244,4 @@ function stringh.abbreviate(x: number, separator: string, precision: number)
 	end
 end
 
---- returns `string.format("<mark color='#000000' transparency='%.3f'>%s</mark>", text)`
-function stringh.createmarkstring(text: string, transparency: number)
-	return string.format("<mark color='#000000' transparency='%.3f'>%s</mark>", transparency, text)
-end
-
 return stringh

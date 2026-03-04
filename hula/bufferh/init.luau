@@ -39,67 +39,14 @@ local function readu24(b: buffer, offset: number)
 	return buffer.readbits(b, offset * 8, 24)
 end
 
-export type unsignedinteger = 
-	| "u8"
-	| "u16"
-	| "u24"
-	| "u32"
-
-export type signedinteger = 
-	| "i8"
-	| "i16"
-	| "i24"
-	| "i32"
-
-export type float =
-	| "f32"
-	| "f64"
-
-export type intfloat = unsignedinteger | signedinteger | float | string
-
-export type integer = unsignedinteger | signedinteger
+export type block =
+	| { type: "byte"; key: string; width: number; read: (buffer, number, ...any) -> any; write: (buffer, number, ...any) -> (); }
+	| { type: "bit"; key: string; width: number; read: (buffer, number, number) -> any; write: (buffer, number, number, number) -> (); }
 
 --- ### bufferh.luau
 ---
 --- buffer library extension
-local bufferh = {
-	intfloatbytesizes = {
-		u8 = 1;
-		u16 = 2;
-		u24 = 3;
-		u32 = 4;
-		i8 = 1;
-		i16 = 2;
-		i24 = 3;
-		i32 = 4;
-		f32 = 4;
-		f64 = 8;
-	} :: {[intfloat]: number};
-	intfloatread = {
-		u8 = buffer.readu8;
-		u16 = buffer.readu16;
-		u24 = readu24;
-		u32 = buffer.readu32;
-		i8 = buffer.readi8;
-		i16 = buffer.readi16;
-		i24 = readi24;
-		i32 = buffer.readi32;
-		f32 = buffer.readf32;
-		f64 = buffer.readf64;
-	} :: {[intfloat]: (b: buffer, offset: number) -> number};
-	intfloatwrite = {
-		u8 = buffer.writeu8;
-		u16 = buffer.writeu16;
-		u24 = writeu24;
-		u32 = buffer.writeu32;
-		i8 = buffer.writei8;
-		i16 = buffer.writei16;
-		i24 = writei24;
-		i32 = buffer.writei32;
-		f32 = buffer.writef32;
-		f64 = buffer.writef64;
-	} :: {[intfloat]: (b: buffer, offset: number, value: number) -> ()};
-}
+local bufferh = {}
 
 bufferh.readi24 = readi24
 bufferh.writei24 = writei24
@@ -138,13 +85,31 @@ function bufferh.writeunitvector(b: buffer, offset: number, value: Vector3)
 	buffer.writeu8(b, offset + 2, math.map(value.Z, -1, 1, 0, 255))
 end
 
+--- reads Vector3i8 from buffer
+function bufferh.readvector3i8(b: buffer, offset: number, precision: number)
+	return Vector3.new(
+		buffer.readi8(b, offset),
+		buffer.readi8(b, offset + 1),
+		buffer.readi8(b, offset + 2)
+	) / precision
+end
+
+--- writes Vector3i8 to buffer
+function bufferh.writevector3i8(b: buffer, offset: number, value: Vector3, precision: number)
+	value *= precision
+
+	buffer.writei8(b, offset, value.X)
+	buffer.writei8(b, offset + 1, value.Y)
+	buffer.writei8(b, offset + 2, value.Z)
+end
+
 --- reads Vector3i16 from buffer
 function bufferh.readvector3i16(b: buffer, offset: number, precision: number)
 	return Vector3.new(
 		buffer.readi16(b, offset),
 		buffer.readi16(b, offset + 2),
 		buffer.readi16(b, offset + 4)
-	) * (1 / precision)
+	) / precision
 end
 
 --- writes Vector3i16 to buffer
@@ -162,7 +127,7 @@ function bufferh.readvector3i24(b: buffer, offset: number, precision: number)
 		bufferh.readi24(b, offset),
 		bufferh.readi24(b, offset + 3),
 		bufferh.readi24(b, offset + 6)
-	) * (1 / precision)
+	) / precision
 end
 
 --- writes Vector3i24 to buffer
@@ -403,243 +368,6 @@ function bufferh.matrixtostringcolumn(m: buffer, column: number)
 	return str
 end
 
---- creates a variable-width value-maxvalue bar
-function bufferh.createbar(format: unsignedinteger|"f64", value: number, maxvalue: number?)
-	local size = bufferh.intfloatbytesizes[format]
-	assert(size, string.format("unknown intfloat size for '%s'", format))
-	
-	local write = bufferh.intfloatwrite[format]
-	assert(write, string.format("unknown intfloat write function for '%s'", format))
-
-	local b = buffer.create(2 * size)
-	write(b, 0, value)
-	write(b, size, maxvalue or value)
-
-	return b
-end
-
---- returns: \
---- `(b: buffer, offset: number) -> number` buffer read function \
---- `number` byte size of each value in bar `b`, equivalent to `0.5 * buffer.len(b)`
-function bufferh.barresolvereadfunction(b: buffer)
-	local width = buffer.len(b)
-	local size = width * 0.5
-	
-	if size == 1 then
-		return bufferh.intfloatread.u8, size
-	elseif size == 2 then
-		return bufferh.intfloatread.u16, size
-	elseif size == 3 then
-		return bufferh.intfloatread.u24, size
-	elseif size == 4 then
-		return bufferh.intfloatread.u32, size
-	elseif size == 8 then
-		return bufferh.intfloatread.f64, size
-	else
-		error(string.format("unknown intfloat write function for size '%d'", size))
-	end
-end
-
---- returns: \
---- `(b: buffer, offset: number, value: number) -> ()` buffer write function \
---- `number` byte size of each value in bar `b`, equivalent to `0.5 * buffer.len(b)`
-function bufferh.barresolvewritefunction(b: buffer)
-	local width = buffer.len(b)
-	local size = width * 0.5
-	
-	if size == 1 then
-		return bufferh.intfloatwrite.u8, size
-	elseif size == 2 then
-		return bufferh.intfloatwrite.u16, size
-	elseif size == 3 then
-		return bufferh.intfloatwrite.u24, size
-	elseif size == 4 then
-		return bufferh.intfloatwrite.u32, size
-	elseif size == 8 then
-		return bufferh.intfloatwrite.f64, size
-	else
-		error(string.format("unknown intfloat write function for size '%d'", size))
-	end
-end
-
---- writes value to bar
-function bufferh.barwritevalue(b: buffer, value: number)
-	local write, size = bufferh.barresolvewritefunction(b)
-	assert(write, string.format("unknown write function for size %d", size))
-
-	write(b, 0, value)
-end
-
---- writes maxvalue to bar
-function bufferh.barwritemaxvalue(b: buffer, maxvalue: number)
-	local write, size = bufferh.barresolvewritefunction(b)
-	assert(write, string.format("unknown write function for size %d", size))
-
-	write(b, size, maxvalue)
-end
-
---- returns value of bar
-function bufferh.barreadvalue(b: buffer)
-	local read, size = bufferh.barresolvereadfunction(b)
-	assert(read, string.format("unknown read function for size %d", size))
-
-	return read(b, 0)
-end
-
---- returns maxvalue of bar
-function bufferh.barreadmaxvalue(b: buffer)
-	local read, size = bufferh.barresolvereadfunction(b)
-	assert(read, string.format("unknown read function for size %d", size))
-
-	return read(b, size)
-end
-
---- returns bar `value, maxvalue`
-function bufferh.barunpack(b: buffer)
-	local read, size = bufferh.barresolvereadfunction(b)
-	assert(read, string.format("unknown read function for size %d", size))
-	
-	return read(b, 0), read(b, size)
-end
-
---- returns 9-wide state `[f64 expiry (?=0), u8 value (?=1)]`
---- ```
----       expiry      value   
---- bytes [00000000]  [0]  
---- range [0 .. 7]    [8]
---- limit [f64]       [0, 255] 
---- ```
-function bufferh.createstate(time: number?, value: number?)
-	local s = buffer.create(9)
-	buffer.writef64(s, 0, time or 0)
-	buffer.writeu8(s, 8, value or 1)
-
-	return s
-end
-
---- returns `f64` state expiry
-function bufferh.statereadexpiry(s: buffer)
-	return buffer.readf64(s, 0)
-end
-
---- writes to expiry portion of state
-function bufferh.statewriteexpiry(s: buffer, expiry: number)
-	buffer.writef64(s, 0, expiry)
-end
-
---- returns `u8` state value
-function bufferh.statereadvalue(s: buffer)
-	return buffer.readu8(s, 8)
-end
-
---- writes to value portion of state
-function bufferh.statewritevalue(s: buffer, value: number)
-	buffer.writeu8(s, 8, value)
-end
-
---- returns \
---- `f64` state expiry \
---- `u8` state value
-function bufferh.stateunpack(s: buffer)
-	return buffer.readf64(s, 0), buffer.readu8(s, 8)
-end
-
---- returns numeric stage `base / base` \
---- `base (?=2)`: stage base value
---- ```
---- key   numerator  denominator
---- bits  [0000]     [0000]  
---- range [0 .. 3]   [4 .. 7]
---- value [0, 15]    [0, 15] 
---- ```
-function bufferh.createstage(width: number, base: number?)
-	local s = buffer.create(width)
-	for i = 0, width - 1, 1 do
-		local bitoffset = i * 8
-		buffer.writebits(s, bitoffset, 4, base or 2)
-		buffer.writebits(s, bitoffset + 4, 4, base or 2)
-	end
-
-	return s
-end
-
---- writes value to signed portion of numeric stage
---- ```luau
---- createstage(1) --- 2/2
---- stagewrite(s, 0, 5) --- 5/2
---- stagewrite(s, 0, -3) --- 5/3
---- ```
-function bufferh.stagewrite(s: buffer, byteoffset: number, value: number)
-	local bitoffset = byteoffset * 8
-	if math.sign(value) == 1 then
-		buffer.writebits(s, bitoffset, 4, math.clamp(value, 0, 15))
-	else
-		buffer.writebits(s, bitoffset + 4, 4, math.clamp(math.abs(value), 0, 15))
-	end
-end
-
---- adds value to signed portion of numeric stage
---- ```luau
---- createstage(1) --- 2/2
---- stagedelta(s, 0, 1) --- 3/2
---- stagedelta(s, 0, -2) --- 3/4
---- ```
-function bufferh.stagedelta(s: buffer, byteoffset: number, value: number)
-	local bitoffset = byteoffset * 8
-	if math.sign(value) == 1 then
-		buffer.writebits(s, bitoffset, 4, math.clamp(value + buffer.readbits(s, bitoffset, 4), 0, 15))
-	else
-		buffer.writebits(s, bitoffset + 4, 4, math.clamp(math.abs(value) + buffer.readbits(s, bitoffset + 4, 4), 0, 15))
-	end
-end
-
---- returns numeric stage `x / y`
-function bufferh.stageread(s: buffer, byteoffset: number)
-	local bitoffset = byteoffset * 8
-	return buffer.readbits(s, bitoffset, 4) / buffer.readbits(s, bitoffset + 4, 4)
-end
-
---- creates an atb bar
---- ```
---- key   phase     rotation  turn available
---- bits  [0000]    [0000]    [64 (8 bytes)]
---- range [0 .. 3]  [4 .. 7]  [8 .. 71]
---- value [0, 15]   [0, 15]   [f64]
---- ```
-function bufferh.createatb()
-	return buffer.create(1+8)
-end
-
---- returns atb action phase
-function bufferh.atbreadphase(a: buffer)
-	return buffer.readbits(a, 0, 4)
-end
-
---- writes atb action phase
-function bufferh.atbwritephase(a: buffer, value: number)
-	buffer.writebits(a, 0, 4, value)
-end
-
---- returns atb action phase rotation offset
-function bufferh.atbreadrotation(a: buffer)
-	return buffer.readbits(a, 4, 4)
-end
-
---- writes atb action phase rotation offset
-function bufferh.atbwriterotation(a: buffer, value: number)
-	buffer.writebits(a, 4, 4, value)
-end
-
---- returns atb turn available time
-function bufferh.atbreadtime(a: buffer)
-	return buffer.readf64(a, 1)
-end
-
---- writes atb turn available time
-function bufferh.atbwritetime(a: buffer, value: number)
-	buffer.writef64(a, 1, value)
-end
-
 --- returns # of bytes required to store value \
 --- equivalent to `1 + (math.log(value, 2) // 8)`
 function bufferh.numbytes(value: number)
@@ -650,6 +378,82 @@ end
 --- equivalent to `1 + math.log(value, 2) // 1`
 function bufferh.numbits(value: number)
 	return 1 + math.log(value, 2) // 1
+end
+
+--- creates a typed buffer
+function bufferh.createtyped(t: {block})
+	local bitsize = 0
+	for _, block in ipairs(t) do
+		if block.type == "bit" then
+			bitsize += block.width
+		elseif block.type == "byte" then
+			bitsize += block.width * 8
+		else
+			error(string.format("unknown block type '%s'", block.type))
+		end
+	end
+
+	return buffer.create(bitsize // 8)
+end
+
+--- reads value from typed buffer
+function bufferh.readtypedvalue(b: buffer, t: {block}, key: string, ...: any)
+	local bitsize = 0
+	for _, block in ipairs(t) do
+		if block.key == key then
+			if block.type == "bit" then
+				local offset = bitsize
+
+				return block.read(b, offset, block.width)
+			elseif block.type == "byte" then
+				local offset = bitsize // 8
+
+				return block.read(b, offset, ...)
+			end
+
+			break
+		end
+		
+		if block.type == "bit" then
+			bitsize += block.width
+		elseif block.type == "byte" then
+			bitsize += block.width * 8
+		else
+			error(string.format("unknown block type '%s'", block.type))
+		end
+	end
+	
+	error(string.format("key '%s' is does not exist in t", key))
+end
+
+--- writes value to typed buffer
+function bufferh.writetypedvalue(b: buffer, t: {block}, key: string, ...: any)
+	local bitsize = 0
+	for _, block in ipairs(t) do
+		if block.key == key then
+			if block.type == "bit" then
+				local offset = bitsize
+
+				block.write(b, offset, block.width, ...)
+			elseif block.type == "byte" then
+				local offset = bitsize // 8
+
+				block.write(b, offset, ...)
+			end
+
+			break
+		end
+		
+		if block.type == "bit" then
+			bitsize += block.width
+		elseif block.type == "byte" then
+			bitsize += block.width * 8
+		else
+			error(string.format("unknown block type '%s'", block.type))
+		end
+	end
+	
+	error(string.format("key '%s' is does not exist in t", key))
 end
 
 return bufferh

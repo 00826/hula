@@ -21,7 +21,7 @@ end
 --- returns `vector.slerp(v, w, t)`
 function vector3h.slerp(v: Vector3, w: Vector3, t: number)
 	local angle = math.acos(vector.dot(v::any, w::any))
-	if angle < 1e-4 then
+	if math.isnan(angle) or angle < 1e-4 then
 		return w
 	else
 		return (math.sin(angle * (1 - t)) * v + math.sin(angle * t) * w ) / math.sin(angle)
@@ -186,7 +186,7 @@ end
 
 --- returns unit circle with `v` vertices
 function vector3h.unitcircle(v: number)
-	local circle = table.create(v)
+	local circle = table.create(v)::{Vector3}
 
 	local step = (2 * math.pi) / v
 	for i = 0, v - 1, 1 do
