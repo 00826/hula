@@ -387,13 +387,15 @@ function bufferh.createtyped(t: {block})
 		if block.type == "bit" then
 			bitsize += block.width
 		elseif block.type == "byte" then
-			bitsize += block.width * 8
+			--- round to higher multiple of 8
+			bitsize = bit32.band(bitsize + (block.width * 8) + 7, -8)
 		else
 			error(string.format("unknown block type '%s'", block.type))
 		end
 	end
 
-	return buffer.create(bitsize // 8)
+	--- round to higher multiple of 8
+	return buffer.create(bit32.band(bitsize + 7, -8) // 8)
 end
 
 --- reads value from typed buffer
@@ -417,7 +419,8 @@ function bufferh.readtypedvalue(b: buffer, t: {block}, key: string, ...: any)
 		if block.type == "bit" then
 			bitsize += block.width
 		elseif block.type == "byte" then
-			bitsize += block.width * 8
+			--- round to higher multiple of 8
+			bitsize = bit32.band(bitsize + (block.width * 8) + 7, -8)
 		else
 			error(string.format("unknown block type '%s'", block.type))
 		end
@@ -441,13 +444,14 @@ function bufferh.writetypedvalue(b: buffer, t: {block}, key: string, ...: any)
 				block.write(b, offset, ...)
 			end
 
-			break
+			return
 		end
 		
 		if block.type == "bit" then
 			bitsize += block.width
 		elseif block.type == "byte" then
-			bitsize += block.width * 8
+			--- round to higher multiple of 8
+			bitsize = bit32.band(bitsize + (block.width * 8) + 7, -8)
 		else
 			error(string.format("unknown block type '%s'", block.type))
 		end
