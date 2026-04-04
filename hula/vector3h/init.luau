@@ -48,7 +48,12 @@ function vector3h.angle(v: Vector3, w: Vector3)
 	return math.acos(vector.dot(v::any, w::any)) --- faster than vector.angle(v, w)
 end
 
---- returns whether or not `v` is finite
+--- returns `vector.cross(v, w)`
+function vector3h.cross(v: Vector3, w: Vector3)
+	return (vector.cross(v::any, w::any)::any)::Vector3
+end
+
+--- returns true if all components of `v` are finite
 function vector3h.isfinite(v: Vector3)
 	local x, y, z = v.X, v.Y, v.Z
 	return math.isfinite(x)
@@ -75,6 +80,70 @@ end
 --- returns `v` rejected from `w`
 function vector3h.reject(v: Vector3, w: Vector3)
 	return v - vector3h.project(v, w)
+end
+
+--- returns `point` transformed to objectspace of `position, lookvector, upvector(?=Vector3.yAxis)` \
+--- eev is the goat
+function vector3h.pointtoobjectspace(point: Vector3, position: Vector3, lookvector: Vector3, upvector: Vector3?)
+	local delta = point - position
+
+	--[[
+	--- case for non-orthonormal input
+	local ub = vector.cross(upvector::any, backvector::any)
+
+	upvector = upvector or Vector3.yAxis
+	return Vector3.new(
+		vector.dot(delta::any, ub),
+		vector.dot(delta::any, vector.cross(backvector::any, rightvector::any)),
+		vector.dot(delta::any, vector.cross(rightvector::any, upvector::any))
+	) / vector.dot(rightvector::any, ub)
+	]]
+
+	--- fast case for orthonormal input
+	upvector = upvector or Vector3.yAxis
+	return Vector3.new(
+		vector.dot(delta::any, vector.cross(lookvector::any, upvector::any)::any),
+		vector.dot(delta::any, upvector::any),
+		-vector.dot(delta::any, lookvector::any)
+	)
+end
+
+--- returns `point`, in objectspace of `position, lookvector, upvector(?=Vector3.yAxis)`, transformed to worldspace
+function vector3h.pointtoworldspace(point: Vector3, position: Vector3, lookvector: Vector3, upvector: Vector3?)
+	upvector = upvector or Vector3.yAxis
+
+	return position
+		+ (point.X * (vector.cross(lookvector::any, upvector::any)::any)::Vector3)
+		+ (point.Y * upvector)
+		+ (point.Z * -lookvector)
+end
+
+--- returns normal of nearest normal on obb formed by `position` with orientation of `lookvector, upvector(?=Vector3.yAxis)`
+function vector3h.nearestnormalonbox(point: Vector3, position: Vector3, lookvector: Vector3, upvector: Vector3?)
+	upvector = upvector or Vector3.yAxis
+	local rightvector = (vector.cross(lookvector::any, upvector::any)::any)::Vector3
+
+	local dot = -math.huge
+	local normal = lookvector
+	
+	local unit = vector3h.normalize(point - position)
+
+	for _, v in ipairs({
+		upvector;
+		-upvector;
+		lookvector;
+		-lookvector;
+		rightvector;
+		-rightvector;
+	}) do
+		local d = vector3h.dot(unit, v)
+		if d > dot then
+			dot = d
+			normal = v
+		end
+	end
+
+	return normal
 end
 
 --- writes non-zero components of `w` onto `v`
@@ -191,11 +260,7 @@ function vector3h.unitcircle(v: number)
 	local step = (2 * math.pi) / v
 	for i = 0, v - 1, 1 do
 		local theta = i * step
-		table.insert(circle, Vector3.new(
-			math.cos(theta),
-			0,
-			math.sin(theta)
-		))
+		table.insert(circle, Vector3.new(math.cos(theta), 0, math.sin(theta)))
 	end
 
 	return circle
@@ -233,8 +298,13 @@ function vector3h.rotation(v: Vector3, axis: Enum.Axis)
 	end
 end
 
---- returns unit vector from input vector `i`, relative to viewport `lookvector, -upvector`
-function vector3h.movevector(i: Vector3, lookvector: Vector3, upvector: Vector3)
+--- returns unit vector from rotations along the x/y axis
+function vector3h.fromrotation(rx: number, ry: number)
+	return Vector3.new(math.cos(ry) * math.sin(rx), math.sin(ry), math.cos(ry) * math.cos(rx))
+end
+
+--- returns unit vector from input vector `inputvector`, relative to viewport `lookvector, -upvector`
+function vector3h.movevector(inputvector: Vector3, lookvector: Vector3, upvector: Vector3)
 	local rightvector = (vector.cross(lookvector::any, upvector::any)::any)::Vector3
 	local cos, sin
 
@@ -254,13 +324,28 @@ function vector3h.movevector(i: Vector3, lookvector: Vector3, upvector: Vector3)
 	end
 
 	local length = (cos*cos + sin*sin)^0.5
-	return Vector3.new(cos*i.X + sin*i.Z, 0, cos*i.Z - sin*i.X) / length
+	return Vector3.new(cos*inputvector.X + sin*inputvector.Z, 0, cos*inputvector.Z - sin*inputvector.X) / length
 end
 
---- returns whether ray starting at `rayposition` in `raydirection` intersects axis-aligned box at `boxposition` with size `boxsize`
-function vector3h.israyintersectingbox(rayposition: Vector3, raydirection: Vector3, boxposition: Vector3, boxsize: Vector3)
+--- returns \
+--- `vector3 position of intersection` \
+--- `vector3 normal of intersection` \
+--- `number distance until intersection` \
+--- ... of ray starting at `rayposition` in `raydirection` and axis-aligned bounding box at `boxposition` with size `boxsize`
+function vector3h.rayintersectbox(rayposition: Vector3, raydirection: Vector3, boxposition: Vector3, boxsize: Vector3)
 	local rx, ry, rz = rayposition.X, rayposition.Y, rayposition.Z
-	local dxi, dyi, dzi = 1 / raydirection.X, 1 / raydirection.Y, 1 / raydirection.Z
+	local unitvector = (vector.normalize(raydirection::any)::any)::Vector3
+	local id = 1 / unitvector
+	local dxi, dyi, dzi = id.X, id.Y, id.Z
+	if math.isinf(dxi) then
+		dxi = 0
+	end
+	if math.isinf(dyi) then
+		dxi = 0
+	end
+	if math.isinf(dzi) then
+		dxi = 0
+	end
 
 	local halfsize = boxsize * 0.5
 	local min = boxposition - halfsize
@@ -276,7 +361,136 @@ function vector3h.israyintersectingbox(rayposition: Vector3, raydirection: Vecto
 	local tmin = math.max(math.max(math.min(t1, t2), math.min(t3, t4)), math.min(t5, t6))
 	local tmax = math.min(math.min(math.max(t1, t2), math.max(t3, t4)), math.max(t5, t6))
 
-	return if tmax < 0 then false elseif tmin > tmax then false else true
+	local point
+	local normal
+	local distance
+
+	if tmax < 0 then
+		--- intersection, but out of box bounds
+	elseif tmin > tmax then
+		--- no intersection
+	else
+		--- intersection
+		distance = tmin
+		normal = Vector3.zero
+		point = rayposition + (unitvector * distance)
+
+		--- resolve normal
+		local mindistance = math.huge
+		local modpoint = point - boxposition
+		local delta = (vector.abs((boxsize::any) - vector.abs(modpoint::any))::any)::Vector3
+		if delta.X < mindistance then
+			mindistance = delta.X
+			normal = ((vector.sign(modpoint::any)::any)::Vector3) * Vector3.xAxis
+		end
+		if delta.Y < mindistance then
+			mindistance = delta.Y
+			normal = ((vector.sign(modpoint::any)::any)::Vector3) * Vector3.yAxis
+		end
+		if delta.Z < mindistance then
+			mindistance = delta.Z
+			normal = ((vector.sign(modpoint::any)::any)::Vector3) * Vector3.zAxis
+		end
+	end
+
+	return point, normal, distance
+end
+
+--- returns \
+--- `vector3 position of intersection` \
+--- `vector3 normal of intersection` \
+--- `number distance until intersection` \
+--- ... of ray starting at `rayposition` in `raydirection` and bounding sphere at `sphereposition` with radius `sphereradius`
+function vector3h.rayintersectsphere(rayposition: Vector3, raydirection: Vector3, sphereposition: Vector3, sphereradius: number)
+	local ca = rayposition - sphereposition
+	local rsquared = sphereradius * sphereradius
+
+	local point
+	local normal
+	local distance
+
+	if vector.dot(ca::any, ca::any) <= rsquared then
+		point = rayposition
+	elseif vector.dot(ca::any, raydirection::any) <= 0 then
+		local v = ca - vector3h.project(ca, raydirection)
+		local vsquared = vector.dot(v::any, v::any)
+		
+		if vsquared <= rsquared then
+			point = sphereposition + v - ((vector.normalize(raydirection::any)::any) * ((rsquared - vsquared) ^ 0.5))
+		end
+	else
+		--- no collision
+	end
+
+	if point ~= nil then
+		local deltaposition = point - sphereposition
+
+		normal = (vector.normalize(deltaposition)::any)::Vector3
+		distance = vector.magnitude(deltaposition)
+	end
+
+	return point::Vector3?, normal, distance
+end
+
+--- returns \
+--- `vector3 position of intersection` \
+--- `vector3 normal of intersection` \
+--- `number distance until intersection` \
+--- ... of two bounding spheres defined by a position and radius
+function vector3h.sphereintersectsphere(aposition: Vector3, aradius: number, bposition: Vector3, bradius: number)
+	local deltaposition = bposition - aposition
+
+	local point
+	local normal
+	local distance
+
+	local d = vector.magnitude(deltaposition::any)
+	if aradius + bradius > d then
+		point = deltaposition
+		normal = (vector.normalize(deltaposition::any)::any)::Vector3
+		distance = d
+	end
+
+	return point, normal, distance
+end
+
+--- returns whether axis-aligned bounding box at `boxposition` with size `boxsize` intersects bounding sphere at `sphereposition` with radius `sphereradius`
+function vector3h.isboxintersectingsphere(boxposition: Vector3, boxsize: Vector3, sphereposition: Vector3, sphereradius: number)
+	local rsquared = sphereradius * sphereradius
+	
+	local halfsize = boxsize * 0.5
+	local minsize = boxposition - halfsize
+	local maxsize = boxposition + halfsize
+
+	local spherex, spherey, spherez = sphereposition.X, sphereposition.Y, sphereposition.Z
+	local minx, miny, minz = minsize.X, minsize.Y, minsize.Z
+	local maxx, maxy, maxz = maxsize.X, maxsize.Y, maxsize.Z
+
+	if spherex < minx then
+		local a = spherex - minx
+		rsquared -= a * a
+	elseif spherex > maxx then
+		local a = spherex - maxx
+		rsquared -= a * a
+	end
+	
+	if spherey < miny then
+		local a = spherey - miny
+		rsquared -= a * a
+	elseif spherey > maxy then
+		local a = spherey - maxy
+		rsquared -= a * a
+	end
+	
+	if spherez < minz then
+		local a = spherez - minz
+		rsquared -= a * a
+	elseif spherez > maxz then
+		local a = spherez - maxz
+		rsquared -= a * a
+	end
+
+	return rsquared > 0
 end
 
 --- returns whether axis-aligned boxes `a` and `b` intersect
@@ -287,32 +501,6 @@ function vector3h.isboxintersectingbox(aposition: Vector3, asize: Vector3, bposi
 	return	abs.x < sum.x
 		and abs.y < sum.y
 		and abs.z < sum.z
-end
-
---- returns `point` transformed to objectspace of `position, lookvector, upvector(?=Vector3.yAxis)` \
---- eev is the goat
-function vector3h.pointtoobjectspace(point: Vector3, position: Vector3, lookvector: Vector3, upvector: Vector3?)
-	local delta = point - position
-
-	--[[
-	--- case for non-orthonormal input
-	local ub = vector.cross(upvector::any, backvector::any)
-
-	upvector = upvector or Vector3.yAxis
-	return Vector3.new(
-		vector.dot(delta::any, ub),
-		vector.dot(delta::any, vector.cross(backvector::any, rightvector::any)),
-		vector.dot(delta::any, vector.cross(rightvector::any, upvector::any))
-	) / vector.dot(rightvector::any, ub)
-	]]
-
-	--- fast case for orthonormal input
-	upvector = upvector or Vector3.yAxis
-	return Vector3.new(
-		vector.dot(delta::any, vector.cross(lookvector::any, upvector::any)::any),
-		vector.dot(delta::any, upvector::any),
-		-vector.dot(delta::any, lookvector::any)
-	)
 end
 
 --- returns: \
@@ -384,44 +572,24 @@ function vector3h.distancefromsphere(point: Vector3, position: Vector3, radius: 
 	return 0
 end
 
---- returns position of a projectile given its initial `velocity`, elapsed `time`, and gravity `?=196`
-function vector3h.projectile(velocity: Vector3, time: number, gravity: number?): Vector3
-	return (vector.normalize(velocity::any)::any * (vector.magnitude(velocity::any) * time)) - ((0.5 * Vector3.yAxis) * (gravity or 196) * (time * time))
+--- returns position of a projectile given its initial `velocity`, elapsed `time`, and `acceleration`
+function vector3h.projectileresolveoffset(initialposition: Vector3, velocity: Vector3, time: number, acceleration: Vector3): Vector3
+	return initialposition + (vector.normalize(velocity::any)::any * (vector.magnitude(velocity::any) * time)) + ((0.5 * Vector3.yAxis) * acceleration * (time * time))
 end
 
---- creates a wheel \
---- vectors should be along the x/z plane
-function vector3h.createwheel(len: number, initialangle: number?)
-	local c = {
-		pointer = vector.create(0, 0, 0);
-		vectors = table.create(len)::{vector};
-	}
+--- returns initial velocity and time-to-reach-targetposition of projectile \
+--- `sign == 1`: collides while ascending \
+--- `sign == -1`: collides while descending \
+function vector3h.projectileresolveinitialvelocity(initialposition: Vector3, targetposition: Vector3, acceleration: Vector3, vy: number, sign: number)
+	local deltaheight = initialposition.Y - targetposition.Y
+	local gravity = acceleration.Y
+	local t = (-vy - (sign * (((vy * vy) - 2 * (deltaheight) * gravity) ^ 0.5))) / gravity
 
-	local step = (2 * math.pi) / len
-
-	for i = 0, len - 1, 1 do
-		local theta = (i * step) + (initialangle or 0)
-		
-		table.insert(c.vectors, vector.create(math.cos(theta), 0, math.sin(theta)))
-	end
-
-	return c
-end
-
---- returns index of wheel wrt pointer
-function vector3h.wheelresolve(c: typeof(vector3h.createwheel(...)))
-	local step = (2 * math.pi) / #c.vectors
-	local halfstep = 0.5 * step
-
-	for i, vec in ipairs(c.vectors) do
-		local angle = vector.angle(vec, c.pointer)
-
-		if angle > -halfstep and angle < halfstep then
-			return i
-		end
-	end
-
-	return 0
+	return Vector3.new(
+		(targetposition.X - initialposition.X) / t,
+		vy,
+		(targetposition.Z - initialposition.Z) / t
+	), t
 end
 
 return vector3h

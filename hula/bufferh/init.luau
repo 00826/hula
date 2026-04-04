@@ -69,74 +69,74 @@ function bufferh.writerandom(b: buffer, offset: number, count: number, R: Random
 	return b
 end
 
---- reads unit vector from buffer
-function bufferh.readunitvector(b: buffer, offset: number)
-	return Vector3.new(
-		math.map(buffer.readu8(b, offset), 0, 255, -1, 1),
-		math.map(buffer.readu8(b, offset + 1), 0, 255, -1, 1),
-		math.map(buffer.readu8(b, offset + 2), 0, 255, -1, 1)
-	)
+--- reads a `width`-wide vector3, multiplied by fractional `precision` to read its fractional portion, from buffer \
+--- `width=3`: `vector3.new(readi8, readi8, readi8)` \
+--- `width=6`: `vector3.new(readi16, readi16, readi16)` \
+--- `width=9`: `vector3.new(readi24, readi24, readi24)` \
+--- `width=12`: `vector3.new(readi32, readi32, readi32)` 
+function bufferh.readvector3(b: buffer, offset: number, width: number, precision: number)
+	if width == 3 then
+		return Vector3.new(
+			buffer.readi8(b, offset),
+			buffer.readi8(b, offset + 1),
+			buffer.readi8(b, offset + 2)
+		) * precision
+	elseif width == 6 then
+		return Vector3.new(
+			buffer.readi16(b, offset),
+			buffer.readi16(b, offset + 2),
+			buffer.readi16(b, offset + 4)
+		) * precision
+	elseif width == 9 then
+		return Vector3.new(
+			readi24(b, offset),
+			readi24(b, offset + 3),
+			readi24(b, offset + 6)
+		) * precision
+	elseif width == 12 then
+		return Vector3.new(
+			buffer.readi32(b, offset),
+			buffer.readi32(b, offset + 4),
+			buffer.readi32(b, offset + 8)
+		) * precision
+	else
+		error(string.format("expected width of 3|6|9|12, got %d", width))
+	end
 end
 
---- writes unit vector to buffer
-function bufferh.writeunitvector(b: buffer, offset: number, value: Vector3)
-	buffer.writeu8(b, offset, math.map(value.X, -1, 1, 0, 255))
-	buffer.writeu8(b, offset + 1, math.map(value.Y, -1, 1, 0, 255))
-	buffer.writeu8(b, offset + 2, math.map(value.Z, -1, 1, 0, 255))
-end
+--- writes a `width`-wide vector3, divided by fractional `precision` to preserve its fractional portion, to buffer \
+--- `width=3`: `writei8(b, offset + [0|1|2], value.xyz)` \
+--- `width=6`: `writei16(b, offset + [0|2|4], value.xyz)` \
+--- `width=9`: `writei24(b, offset + [0|3|6], value.xyz)` \
+--- `width=12`: `writei32(b, offset + [0|4|8], value.xyz)`
+function bufferh.writevector3(b: buffer, offset: number, value: Vector3, width: number, precision: number)
+	if width == 3 then
+		value /= precision
 
---- reads Vector3i8 from buffer
-function bufferh.readvector3i8(b: buffer, offset: number, precision: number)
-	return Vector3.new(
-		buffer.readi8(b, offset),
-		buffer.readi8(b, offset + 1),
-		buffer.readi8(b, offset + 2)
-	) / precision
-end
+		buffer.writei8(b, offset, value.X)
+		buffer.writei8(b, offset + 1, value.Y)
+		buffer.writei8(b, offset + 2, value.Z)
+	elseif width == 6 then
+		value /= precision
 
---- writes Vector3i8 to buffer
-function bufferh.writevector3i8(b: buffer, offset: number, value: Vector3, precision: number)
-	value *= precision
+		buffer.writei16(b, offset, value.X)
+		buffer.writei16(b, offset + 2, value.Y)
+		buffer.writei16(b, offset + 4, value.Z)
+	elseif width == 9 then
+		value /= precision
 
-	buffer.writei8(b, offset, value.X)
-	buffer.writei8(b, offset + 1, value.Y)
-	buffer.writei8(b, offset + 2, value.Z)
-end
+		bufferh.writei24(b, offset, value.X)
+		bufferh.writei24(b, offset + 3, value.Y)
+		bufferh.writei24(b, offset + 6, value.Z)
+	elseif width == 12 then
+		value /= precision
 
---- reads Vector3i16 from buffer
-function bufferh.readvector3i16(b: buffer, offset: number, precision: number)
-	return Vector3.new(
-		buffer.readi16(b, offset),
-		buffer.readi16(b, offset + 2),
-		buffer.readi16(b, offset + 4)
-	) / precision
-end
-
---- writes Vector3i16 to buffer
-function bufferh.writevector3i16(b: buffer, offset: number, value: Vector3, precision: number)
-	value *= precision
-
-	buffer.writei16(b, offset, value.X)
-	buffer.writei16(b, offset + 2, value.Y)
-	buffer.writei16(b, offset + 4, value.Z)
-end
-
---- reads Vector3i24 from buffer
-function bufferh.readvector3i24(b: buffer, offset: number, precision: number)
-	return Vector3.new(
-		bufferh.readi24(b, offset),
-		bufferh.readi24(b, offset + 3),
-		bufferh.readi24(b, offset + 6)
-	) / precision
-end
-
---- writes Vector3i24 to buffer
-function bufferh.writevector3i24(b: buffer, offset: number, value: Vector3, precision: number)
-	value *= precision
-
-	bufferh.writei24(b, offset, value.X)
-	bufferh.writei24(b, offset + 3, value.Y)
-	bufferh.writei24(b, offset + 6, value.Z)
+		buffer.writei32(b, offset, value.X)
+		buffer.writei32(b, offset + 4, value.Y)
+		buffer.writei32(b, offset + 8, value.Z)
+	else
+		error(string.format("expected width of 3|6|9|12, got %d", width))
+	end
 end
 
 --- rotates range of values with fixed variable size to the right

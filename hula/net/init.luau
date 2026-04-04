@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local isserver = RunService:IsServer()
 
 local Players = game:GetService("Players")
+local localplayer = Players.LocalPlayer
 
 local RemoteEvent = script:WaitForChild("RemoteEvent")
 local UnreliableRemoteEvent = script:WaitForChild("UnreliableRemoteEvent")
@@ -120,6 +121,8 @@ end
 local net = {
 	unixbuffer = buffer.create(8);
 	framerate = 1/60;
+
+	deltatime = 0;
 	
 	ports = {};
 	ships = table.create(255) :: {string};
@@ -757,6 +760,17 @@ function net.ms()
 	return buffer.readf64(net.unixbuffer, 0)
 end
 
+--- when called on client, returns `localplayer:GetNetworkPing() * 1000` \
+--- otherwise returns 0
+function net.localpingms()
+	return if isserver then (localplayer:GetNetworkPing() * 1000) else 0
+end
+
+--- returns `player:GetNetworkPing() * 1000`
+function net.pingms(player: Player)
+	return player:GetNetworkPing() * 1000
+end
+
 --- runs function at `step` second interval for `time` seconds \
 --- exceptions: \
 --- `step == -1`: function is called every heartbeat \
@@ -947,6 +961,10 @@ function net.timestamp(time: number, format: "hour" | "halfday" | "day" | "week"
 
 	return timestamp
 end
+
+RunService.Heartbeat:Connect(function(dt)
+	net.deltatime = dt
+end)
 
 if isserver then
 	do --- flush queue

@@ -55,7 +55,7 @@ local tableh = {
 	};
 }
 
---- `T[string random alphanumeric key (len ?=4)] = value` \
+--- `T[string random alphanumeric key] = value` \
 --- returns `random alphanumeric key` for convenience
 function tableh.insertkey(t: {[any]: any}, value: any, len: number)
 	local key = nil

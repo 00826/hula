@@ -264,6 +264,7 @@ type adornmentbase = {
 
 	color: Color3?;
 	transparency: number?;
+	shading: Enum.AdornShading?;
 	visible: boolean?;
 
 	parent: Instance?;
@@ -277,9 +278,6 @@ type adornmenttransform = {
 
 --- sets adornment base properties
 local function setadornmentbaseproperties(adornment: HandleAdornment, a: adornmentbase & {at: CFrame|Vector3})
-	if a.adornee ~= nil then
-		adornment.Adornee = a.adornee
-	end
 	if a.adorncullingmode then
 		adornment.AdornCullingMode = a.adorncullingmode
 	end
@@ -299,6 +297,9 @@ local function setadornmentbaseproperties(adornment: HandleAdornment, a: adornme
 	if a.transparency then
 		adornment.Transparency = a.transparency
 	end
+	if a.shading then
+		(adornment::any).Shading = a.shading
+	end
 	if a.visible ~= nil then
 		adornment.Visible = a.visible
 	end
@@ -313,7 +314,8 @@ local function setadornmentbaseproperties(adornment: HandleAdornment, a: adornme
 		adornment.CFrame = CFrame.identity
 	end
 
-	adornment.Parent = a.parent or workspace
+	adornment.Adornee = a.adornee or workspace.Terrain
+	adornment.Parent = a.parent or workspace.Terrain
 end
 
 --- instantiates a `BoxHandleAdornment` with initial properties `a` and optionally-transforms it toward goal `b`
@@ -403,64 +405,6 @@ function instanceh.conehandleadornment(
 			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
 			
 			Radius = b.radius;
-			Height = b.height;
-
-			Parent = b.parent;
-		}
-
-		if next(goal) ~= nil then
-			instanceh.tween(adornment, goal, b.time)
-		end
-
-		if b.destroy then
-			task.delay(b.time, adornment.Destroy, adornment)
-		end
-	end
-
-	return adornment
-end
-
---- instantiates a `PyramidHandleAdornment` with initial properties `a` and optionally-transforms it toward goal `b`
-function instanceh.pyramidhandleadornment(
-	a: {
-		at: CFrame|Vector3;
-
-		sides: number;
-		size: number;
-		height: number;
-	} & adornmentbase,
-	b: ({
-		at: CFrame|Vector3?;
-
-		sides: number?;
-		size: number?;
-		height: number?;
-	} & adornmentbase & adornmenttransform)?
-)
-	local adornment = Instance.new("PyramidHandleAdornment")
-	setadornmentbaseproperties(adornment, a)
-	
-	adornment.Sides = a.sides
-	adornment.Size = a.size
-	adornment.Height = a.height
-
-	if b then
-		local to = b.at
-		local goal = {
-			Adornee = b.adornee;
-			AdornCullingMode = b.adorncullingmode;
-			SizeRelativeOffset = b.sizerelativeoffset;
-			AlwaysOnTop = b.alwaysontop;
-			ZIndex = b.zindex;
-
-			Color3 = b.color;
-			Transparency = b.transparency;
-			Visible = b.visible;
-
-			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
-			
-			Sides = b.height;
-			Size = b.size;
 			Height = b.height;
 
 			Parent = b.parent;
@@ -578,6 +522,64 @@ function instanceh.imagehandleadornment(
 			
 			Size = b.size;
 			[contentscope] = b.image and Content.fromUri(b.image) or nil;
+
+			Parent = b.parent;
+		}
+
+		if next(goal) ~= nil then
+			instanceh.tween(adornment, goal, b.time)
+		end
+
+		if b.destroy then
+			task.delay(b.time, adornment.Destroy, adornment)
+		end
+	end
+
+	return adornment
+end
+
+--- instantiates a `PyramidHandleAdornment` with initial properties `a` and optionally-transforms it toward goal `b`
+function instanceh.pyramidhandleadornment(
+	a: {
+		at: CFrame|Vector3;
+
+		sides: number;
+		size: number;
+		height: number;
+	} & adornmentbase,
+	b: ({
+		at: CFrame|Vector3?;
+
+		sides: number?;
+		size: number?;
+		height: number?;
+	} & adornmentbase & adornmenttransform)?
+)
+	local adornment = Instance.new("PyramidHandleAdornment")
+	setadornmentbaseproperties(adornment, a)
+	
+	adornment.Sides = a.sides
+	adornment.Size = a.size
+	adornment.Height = a.height
+
+	if b then
+		local to = b.at
+		local goal = {
+			Adornee = b.adornee;
+			AdornCullingMode = b.adorncullingmode;
+			SizeRelativeOffset = b.sizerelativeoffset;
+			AlwaysOnTop = b.alwaysontop;
+			ZIndex = b.zindex;
+
+			Color3 = b.color;
+			Transparency = b.transparency;
+			Visible = b.visible;
+
+			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
+			
+			Sides = b.height;
+			Size = b.size;
+			Height = b.height;
 
 			Parent = b.parent;
 		}

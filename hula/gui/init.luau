@@ -1,4 +1,4 @@
---!strict
+--!nonstrict
 
 local GuiService = game:GetService("GuiService")
 local StarterGui = game:GetService("StarterGui")
@@ -37,6 +37,22 @@ export type alignmentparams = {
 	layoutorder: number?;
 	--- `?=0`
 	rotation: number?;
+}
+
+--- type describing uishadow properties
+export type shadowparams = {
+	--- `?=udim.new(0, 0)`
+	blurradius: UDim?;
+	--- `?=color3.fromrgb(0, 0, 0)`
+	color: Color3?;
+	--- `?=udim2.fromscale(0, 0)`
+	offset: UDim2?;
+	--- `?=udim2.fromscale(0, 0)`
+	spread: UDim2?;
+	--- `?=0`
+	transparency: number?;
+	--- `?=0`
+	zindex: number?;
 }
 
 --- type describing uistroke properties
@@ -173,6 +189,76 @@ export type viewportparams = {
 	imagecolor: Color3?;
 	--- `?=0`
 	imagetransparency: number?;
+}
+
+--- type describing billboardgui properties
+export type billboardparams = {
+	--- `?=false`
+	active: boolean?;
+	--- `?=nil`
+	adornee: Instance?;
+	--- `?=false`
+	alwaysontop: boolean?;
+	--- `?=0`
+	brightness: number?;
+	--- `?=true`
+	enabled: boolean?;
+	--- `?=vector3.zero`
+	extentsoffset: Vector3?;
+	--- `?=vector3.zero`
+	extentsoffsetworldspace: Vector3?;
+	--- `?=0`
+	lightinfluence: number?;
+	--- `?=100`
+	maxdistance: number?;
+	--- `?=false`
+	resetonspawn: boolean?;
+	--- `?=udim2.fromscale(16, 16)`
+	size: UDim2?;
+	--- `?=vector2.zero`
+	sizeoffset: Vector2?;
+	--- `?=vector3.zero`
+	studsoffset: Vector3?;
+	--- `?=vector3.zero`
+	studsoffsetworldspace: Vector3?;
+	--- `?=true`
+	clipsdescendants: boolean?;
+	--- `?=sibling`
+	zindexbehavior: Enum.ZIndexBehavior?;
+}
+
+--- type describing surfacegui properties
+export type surfaceparams = {
+	--- `?=0`
+	zoffset: number?;
+	--- `?=false`
+	active: boolean?;
+	--- `?=nil`
+	adornee: Instance?;
+	--- `?=false`
+	alwaysontop: boolean?;
+	--- `?=0`
+	brightness: number?;
+	--- `?=0`
+	lightinfluence: number?;
+	--- `?=true`
+	enabled: boolean?;
+	--- `?=front`
+	face: Enum.NormalId?;
+	--- `?=100`
+	maxdistance: number?;
+	--- `?=false`
+	resetonspawn: number?;
+	--- `?=0`
+	toolpunchthroughdistance: number?;
+	--- `?=true`
+	clipsdescendants: boolean?;
+	--- `?=50`
+	pixelsperstud: number?;
+	--- `?=pixelsperstud`
+	sizingmode: Enum.SurfaceGuiSizingMode?;
+	--- `?=sibling`
+	zindexbehavior: Enum.ZIndexBehavior?;
 }
 
 --- type describing tree constructor
@@ -585,6 +671,18 @@ function gui.createuipadding(params: { ["top"|"bottom"|"left"|"right"]: UDim })
 	return uipadding
 end
 
+function gui.createuishadow(params: shadowparams)
+	local uishadow = Instance.new("UIShadow")
+	uishadow.BlurRadius = params.blurradius or UDim.new(0, 0)
+	uishadow.Color = params.color or Color3.fromRGB(0, 0, 0)
+	uishadow.Offset = params.offset or UDim2.fromScale(0, 0)
+	uishadow.Spread = params.spread or UDim2.fromScale(0, 0)
+	uishadow.Transparency = params.transparency or 0
+	uishadow.ZIndex = params.zindex or 0
+
+	return uishadow
+end
+
 --- creates a `UIStroke`
 function gui.createuistroke(params: strokeparams)
 	local uistroke = Instance.new("UIStroke")
@@ -608,6 +706,51 @@ function gui.createviewportframe(params: appearance & alignmentparams & viewport
 	gui.writeviewport(viewportframe, params)
 
 	return viewportframe
+end
+
+--- creates a `BillboardGui`
+function gui.createbillboardgui(params: billboardparams)
+	local billboardgui = Instance.new("BillboardGui")
+	billboardgui.Active = if params.active ~= nil then params.active else false
+	billboardgui.Adornee = params.adornee
+	billboardgui.AlwaysOnTop = if params.alwaysontop ~= nil then params.alwaysontop else false
+	billboardgui.Brightness = params.brightness or 0
+	billboardgui.LightInfluence = params.lightinfluence or 0
+	billboardgui.Enabled = if params.enabled ~= nil then params.enabled else true
+	billboardgui.ExtentsOffset = params.extentsoffset or Vector3.zero
+	billboardgui.ExtentsOffsetWorldSpace = params.extentsoffsetworldspace or Vector3.zero
+	billboardgui.MaxDistance = params.maxdistance or 100
+	billboardgui.ResetOnSpawn = if params.resetonspawn ~= nil then params.resetonspawn else false
+	billboardgui.Size = params.size or UDim2.fromScale(16, 16)
+	billboardgui.SizeOffset = params.sizeoffset or Vector2.zero
+	billboardgui.StudsOffset = params.studsoffset or Vector3.zero
+	billboardgui.StudsOffsetWorldSpace = params.studsoffsetworldspace or Vector3.zero
+	billboardgui.ClipsDescendants = if params.clipsdescendants ~= nil then params.clipsdescendants else true
+	billboardgui.ZIndexBehavior = params.zindexbehavior or Enum.ZIndexBehavior.Sibling
+
+	return billboardgui
+end
+
+--- creates a `SurfaceGui`
+function gui.createsurfacegui(params: surfaceparams)
+	local surfacegui = Instance.new("SurfaceGui")
+	surfacegui.ZOffset = params.zoffset or 0
+	surfacegui.Active = if params.active ~= nil then params.active else false
+	surfacegui.Adornee = params.adornee
+	surfacegui.AlwaysOnTop = if params.alwaysontop ~= nil then params.alwaysontop else false
+	surfacegui.Brightness = params.brightness or 0
+	surfacegui.LightInfluence = params.lightinfluence or 0
+	surfacegui.Enabled = if params.enabled ~= nil then params.enabled else true
+	surfacegui.Face = params.face or Enum.NormalId.Front
+	surfacegui.MaxDistance = params.maxdistance or 100
+	surfacegui.ResetOnSpawn = if params.resetonspawn ~= nil then params.resetonspawn else false
+	surfacegui.ToolPunchThroughDistance = params.toolpunchthroughdistance or 0
+	surfacegui.ClipsDescendants = if params.clipsdescendants ~= nil then params.clipsdescendants else true
+	surfacegui.PixelsPerStud = params.pixelsperstud or 50
+	surfacegui.SizingMode = params.sizingmode or Enum.SurfaceGuiSizingMode.PixelsPerStud
+	surfacegui.ZIndexBehavior = params.zindexbehavior or Enum.ZIndexBehavior.Sibling
+
+	return surfacegui
 end
 
 --- creates a stepped numbersequence \
