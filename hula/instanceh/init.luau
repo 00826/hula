@@ -255,11 +255,10 @@ function instanceh.sound(sound: Sound, at: (Vector3|Instance)?, playbackspeed: n
 end
 
 --- type describing handleadornment class
-type adornmentbase = {
+type adornmentsupertype = {
 	adornee: PVInstance?;
 	adorncullingmode: Enum.AdornCullingMode?;
 	sizerelativeoffset: Vector3?;
-	alwaysontop: boolean?;
 	zindex: number?;
 
 	color: Color3?;
@@ -268,36 +267,62 @@ type adornmentbase = {
 	visible: boolean?;
 
 	parent: Instance?;
+
+	size: Vector2|Vector3|number?;
+	radius: number?;
+	innerradius: number?;
+	height: number?;
+	hollow: boolean?;
+	angle: number?;
+	image: string?;
+	sides: number?;
 }
 
---- type describing handleadornment transform (tween) args
-type adornmenttransform = {
+type adornmenttransformsupertype = {
+	adornee: {PVInstance}?;
+	adorncullingmode: {Enum.AdornCullingMode}?;
+	sizerelativeoffset: {Vector3}?;
+	zindex: {number}?;
+
+	color: {Color3}?;
+	transparency: {number}?;
+	shading: {Enum.AdornShading}?;
+	visible: {boolean}?;
+
+	parent: {Instance}?;
+
+	size: {Vector2|Vector3|number}?;
+	radius: {number}?;
+	innerradius: {number}?;
+	height: {number}?;
+	hollow: {boolean}?;
+	angle: {number}?;
+	image: {string}?;
+	sides: {number}?;
+
 	time: number;
 	destroy: boolean;
 }
 
 --- sets adornment base properties
-local function setadornmentbaseproperties(adornment: HandleAdornment, a: adornmentbase & {at: CFrame|Vector3})
-	if a.adorncullingmode then
+local function setadornmentbaseproperties(adornment: HandleAdornment, a: {at: CFrame|Vector3} & adornmentsupertype)
+	if a.adorncullingmode ~= nil then
 		adornment.AdornCullingMode = a.adorncullingmode
 	end
-	if a.sizerelativeoffset then
+	if a.sizerelativeoffset ~= nil then
 		adornment.SizeRelativeOffset = a.sizerelativeoffset
 	end
-	if a.alwaysontop ~= nil then
-		adornment.AlwaysOnTop = a.alwaysontop
-	end
-	if a.zindex then
+	if a.zindex ~= nil then
 		adornment.ZIndex = a.zindex
 	end
 
-	if a.color then
+	if a.color ~= nil then
 		adornment.Color3 = a.color
 	end
-	if a.transparency then
+	if a.transparency ~= nil then
 		adornment.Transparency = a.transparency
 	end
-	if a.shading then
+	if a.shading ~= nil then
 		(adornment::any).Shading = a.shading
 	end
 	if a.visible ~= nil then
@@ -314,332 +339,301 @@ local function setadornmentbaseproperties(adornment: HandleAdornment, a: adornme
 		adornment.CFrame = CFrame.identity
 	end
 
+	--- class-specific
+	if adornment:IsA("BoxHandleAdornment") then
+		if typeof(a.size) == "Vector3" then
+			adornment.Size = a.size
+		end
+	elseif adornment:IsA("ConeHandleAdornment") then
+		if a.radius ~= nil then
+			adornment.Radius = a.radius
+		end
+		if a.height ~= nil then
+			adornment.Height = a.height
+		end
+		if a.hollow ~= nil then
+			adornment.Hollow = a.hollow
+		end
+	elseif adornment:IsA("CylinderHandleAdornment") then
+		if a.angle ~= nil then
+			adornment.Angle = a.angle
+		end
+		if a.radius ~= nil then
+			adornment.Radius = a.radius
+		end
+		if a.innerradius ~= nil then
+			adornment.InnerRadius = a.innerradius
+		end
+		if a.height ~= nil then
+			adornment.Height = a.height
+		end
+	elseif adornment:IsA("ImageHandleAdornment") then
+		if a.image ~= nil then
+			adornment.Image = a.image
+		end
+		if typeof(a.size) == "Vector2" then
+			adornment.Size = a.size
+		end
+	elseif adornment:IsA("PyramidHandleAdornment") then
+		if a.height ~= nil then
+			adornment.Height = a.height
+		end
+		if a.sides ~= nil then
+			adornment.Sides = a.sides
+		end
+		if typeof(a.size) == "number" then
+			adornment.Size = a.size
+		end
+	elseif adornment:IsA("SphereHandleAdornment") then
+		if a.radius ~= nil then
+			adornment.Radius = a.radius
+		end
+	else
+		warn(string.format("unaccounted class '%s'", adornment.ClassName))
+	end
+
 	adornment.Adornee = a.adornee or workspace.Terrain
 	adornment.Parent = a.parent or workspace.Terrain
 end
 
---- instantiates a `BoxHandleAdornment` with initial properties `a` and optionally-transforms it toward goal `b`
-function instanceh.boxhandleadornment(
-	a: {
-		at: CFrame|Vector3;
+--- returns \
+--- `a` initial properties \
+--- `b` target properties \
+--- `time` tween time \
+--- `destroy` destroy after tween (?=true)
+local function createab(params: {[string]: any})
+	local a = {}
+	local b = {}
+	for k, v in params do
+		if type(v) == "table" then
+			local avalue = v[1]
+			if avalue ~= nil then
+				a[k] = avalue::any
+			end
+			local bvalue = v[2]
+			if bvalue ~= nil then
+				b[k] = bvalue::any
+			end
+		end
+	end
 
-		size: Vector3;
-	} & adornmentbase,
-	b: ({
-		at: CFrame|Vector3?;
+	return a, b, params.time::number, if params.destroy == nil then true else params.destroy == true
+end
 
-		size: Vector3?;
-	} & adornmentbase & adornmenttransform)?
-)
+--- instantiates and optionally-transforms a `BoxHandleAdornment`
+function instanceh.boxhandleadornment(params: adornmenttransformsupertype)
 	local adornment = Instance.new("BoxHandleAdornment")
-	setadornmentbaseproperties(adornment, a)
-	
-	adornment.Size = a.size
+	local a, b, time, destroy = createab(params::any)
 
-	if b then
+	setadornmentbaseproperties(adornment, a)
+
+	if next(b) ~= nil then
 		local to = b.at
-		local goal = {
+		instanceh.tween(adornment, {
+			Size = b.size;
+			---
 			Adornee = b.adornee;
 			AdornCullingMode = b.adorncullingmode;
 			SizeRelativeOffset = b.sizerelativeoffset;
-			AlwaysOnTop = b.alwaysontop;
 			ZIndex = b.zindex;
 
 			Color3 = b.color;
 			Transparency = b.transparency;
+			Shading = b.shading;
 			Visible = b.visible;
 
 			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
-			
-			Size = b.size;
 
 			Parent = b.parent;
-		}
+		}, time)
 
-		if next(goal) ~= nil then
-			instanceh.tween(adornment, goal, b.time)
-		end
-
-		if b.destroy then
-			task.delay(b.time, adornment.Destroy, adornment)
+		if destroy then
+			task.delay(time, adornment.Destroy, adornment)
 		end
 	end
 
 	return adornment
 end
 
---- instantiates a `ConeHandleAdornment` with initial properties `a` and optionally-transforms it toward goal `b`
-function instanceh.conehandleadornment(
-	a: {
-		at: CFrame|Vector3;
-
-		radius: number;
-		height: number;
-	} & adornmentbase,
-	b: ({
-		at: CFrame|Vector3?;
-
-		radius: number?;
-		height: number?;
-	} & adornmentbase & adornmenttransform)?
-)
+--- instantiates and optionally-transforms a `ConeHandleAdornment`
+function instanceh.conehandleadornment(params: adornmenttransformsupertype)
 	local adornment = Instance.new("ConeHandleAdornment")
+	local a, b, time, destroy = createab(params::any)
+
 	setadornmentbaseproperties(adornment, a)
-	
-	adornment.Radius = a.radius
-	adornment.Height = a.height
 
-	if b then
+	if next(b) ~= nil then
 		local to = b.at
-		local goal = {
-			Adornee = b.adornee;
-			AdornCullingMode = b.adorncullingmode;
-			SizeRelativeOffset = b.sizerelativeoffset;
-			AlwaysOnTop = b.alwaysontop;
-			ZIndex = b.zindex;
-
-			Color3 = b.color;
-			Transparency = b.transparency;
-			Visible = b.visible;
-
-			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
-			
+		instanceh.tween(adornment, {
 			Radius = b.radius;
 			Height = b.height;
+			Hollow = b.hollow;
+			---
+			Adornee = b.adornee;
+			AdornCullingMode = b.adorncullingmode;
+			SizeRelativeOffset = b.sizerelativeoffset;
+			ZIndex = b.zindex;
+
+			Color3 = b.color;
+			Transparency = b.transparency;
+			Shading = b.shading;
+			Visible = b.visible;
+
+			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
 
 			Parent = b.parent;
-		}
+		}, time)
 
-		if next(goal) ~= nil then
-			instanceh.tween(adornment, goal, b.time)
-		end
-
-		if b.destroy then
-			task.delay(b.time, adornment.Destroy, adornment)
+		if destroy then
+			task.delay(time, adornment.Destroy, adornment)
 		end
 	end
 
 	return adornment
 end
 
---- instantiates a `CylinderHandleAdornment` with initial properties `a` and optionally-transforms it toward goal `b`
-function instanceh.cylinderhandleadornment(
-	a: {
-		at: CFrame|Vector3;
-
-		radius: number;
-		innerradius: number;
-		height: number;
-		angle: number;
-	} & adornmentbase,
-	b: ({
-		at: CFrame|Vector3?;
-
-		radius: number?;
-		innerradius: number?;
-		height: number?;
-		angle: number?;
-	} & adornmentbase & adornmenttransform)?
-)
+--- instantiates and optionally-transforms a `CylinderHandleAdornment`
+function instanceh.cylinderhandleadornment(params: adornmenttransformsupertype)
 	local adornment = Instance.new("CylinderHandleAdornment")
+	local a, b, time, destroy = createab(params::any)
+
 	setadornmentbaseproperties(adornment, a)
-	
-	adornment.Radius = a.radius
-	adornment.InnerRadius = a.innerradius
-	adornment.Height = a.height
-	adornment.Angle = a.angle
 
-	if b then
+	if next(b) ~= nil then
 		local to = b.at
-		local goal = {
-			Adornee = b.adornee;
-			AdornCullingMode = b.adorncullingmode;
-			SizeRelativeOffset = b.sizerelativeoffset;
-			AlwaysOnTop = b.alwaysontop;
-			ZIndex = b.zindex;
-
-			Color3 = b.color;
-			Transparency = b.transparency;
-			Visible = b.visible;
-
-			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
-			
+		instanceh.tween(adornment, {
 			Radius = b.radius;
 			InnerRadius = b.innerradius;
 			Height = b.height;
 			Angle = b.angle;
+			---
+			Adornee = b.adornee;
+			AdornCullingMode = b.adorncullingmode;
+			SizeRelativeOffset = b.sizerelativeoffset;
+			ZIndex = b.zindex;
+
+			Color3 = b.color;
+			Transparency = b.transparency;
+			Shading = b.shading;
+			Visible = b.visible;
+
+			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
 
 			Parent = b.parent;
-		}
+		}, time)
 
-		if next(goal) ~= nil then
-			instanceh.tween(adornment, goal, b.time)
-		end
-
-		if b.destroy then
-			task.delay(b.time, adornment.Destroy, adornment)
+		if destroy then
+			task.delay(time, adornment.Destroy, adornment)
 		end
 	end
 
 	return adornment
 end
 
---- instantiates a `ImageHandleAdornment` with initial properties `a` and optionally-transforms it toward goal `b`
-function instanceh.imagehandleadornment(
-	a: {
-		at: CFrame|Vector3;
-
-		size: Vector2;
-		image: string;
-	} & adornmentbase,
-	b: ({
-		at: CFrame|Vector3?;
-
-		size: Vector2?;
-		image: string?;
-	} & adornmentbase & adornmenttransform)?
-)
+--- instantiates and optionally-transforms a `ImageHandleAdornment`
+function instanceh.imagehandleadornment(params: adornmenttransformsupertype)
 	local adornment = Instance.new("ImageHandleAdornment")
+	local a, b, time, destroy = createab(params::any)
+
 	setadornmentbaseproperties(adornment, a)
-	
-	adornment.Size = a.size
-	local contentscope = instanceh.setassetid(adornment, a.image)
 
-	if b then
+	if next(b) ~= nil then
+		local contentscope = instanceh.setassetid(adornment, a.image)
+
 		local to = b.at
-		local goal = {
-			Adornee = b.adornee;
-			AdornCullingMode = b.adorncullingmode;
-			SizeRelativeOffset = b.sizerelativeoffset;
-			AlwaysOnTop = b.alwaysontop;
-			ZIndex = b.zindex;
-
-			Color3 = b.color;
-			Transparency = b.transparency;
-			Visible = b.visible;
-
-			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
-			
+		instanceh.tween(adornment, {
 			Size = b.size;
 			[contentscope] = b.image and Content.fromUri(b.image) or nil;
+			---
+			Adornee = b.adornee;
+			AdornCullingMode = b.adorncullingmode;
+			SizeRelativeOffset = b.sizerelativeoffset;
+			ZIndex = b.zindex;
+
+			Color3 = b.color;
+			Transparency = b.transparency;
+			Shading = b.shading;
+			Visible = b.visible;
+
+			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
 
 			Parent = b.parent;
-		}
+		}, time)
 
-		if next(goal) ~= nil then
-			instanceh.tween(adornment, goal, b.time)
-		end
-
-		if b.destroy then
-			task.delay(b.time, adornment.Destroy, adornment)
+		if destroy then
+			task.delay(time, adornment.Destroy, adornment)
 		end
 	end
 
 	return adornment
 end
 
---- instantiates a `PyramidHandleAdornment` with initial properties `a` and optionally-transforms it toward goal `b`
-function instanceh.pyramidhandleadornment(
-	a: {
-		at: CFrame|Vector3;
-
-		sides: number;
-		size: number;
-		height: number;
-	} & adornmentbase,
-	b: ({
-		at: CFrame|Vector3?;
-
-		sides: number?;
-		size: number?;
-		height: number?;
-	} & adornmentbase & adornmenttransform)?
-)
+--- instantiates and optionally-transforms a `PyramidHandleAdornment`
+function instanceh.pyramidhandleadornment(params: adornmenttransformsupertype)
 	local adornment = Instance.new("PyramidHandleAdornment")
+	local a, b, time, destroy = createab(params::any)
+
 	setadornmentbaseproperties(adornment, a)
-	
-	adornment.Sides = a.sides
-	adornment.Size = a.size
-	adornment.Height = a.height
 
-	if b then
+	if next(b) ~= nil then
 		local to = b.at
-		local goal = {
-			Adornee = b.adornee;
-			AdornCullingMode = b.adorncullingmode;
-			SizeRelativeOffset = b.sizerelativeoffset;
-			AlwaysOnTop = b.alwaysontop;
-			ZIndex = b.zindex;
-
-			Color3 = b.color;
-			Transparency = b.transparency;
-			Visible = b.visible;
-
-			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
-			
+		instanceh.tween(adornment, {
 			Sides = b.height;
 			Size = b.size;
 			Height = b.height;
+			---
+			Adornee = b.adornee;
+			AdornCullingMode = b.adorncullingmode;
+			SizeRelativeOffset = b.sizerelativeoffset;
+			ZIndex = b.zindex;
+
+			Color3 = b.color;
+			Transparency = b.transparency;
+			Shading = b.shading;
+			Visible = b.visible;
+
+			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
 
 			Parent = b.parent;
-		}
+		}, time)
 
-		if next(goal) ~= nil then
-			instanceh.tween(adornment, goal, b.time)
-		end
-
-		if b.destroy then
-			task.delay(b.time, adornment.Destroy, adornment)
+		if destroy then
+			task.delay(time, adornment.Destroy, adornment)
 		end
 	end
 
 	return adornment
 end
 
---- instantiates a `SphereHandleAdornment` with initial properties `a` and optionally-transforms it toward goal `b`
-function instanceh.spherehandleadornment(
-	a: {
-		at: CFrame|Vector3;
-
-		radius: number;
-	} & adornmentbase,
-	b: ({
-		at: CFrame|Vector3?;
-
-		radius: number?;
-	} & adornmentbase & adornmenttransform)?
-)
+--- instantiates and optionally-transforms a `SphereHandleAdornment`
+function instanceh.spherehandleadornment(params: adornmenttransformsupertype)
 	local adornment = Instance.new("SphereHandleAdornment")
-	setadornmentbaseproperties(adornment, a)
-	
-	adornment.Radius = a.radius
+	local a, b, time, destroy = createab(params::any)
 
-	if b then
+	setadornmentbaseproperties(adornment, a)
+
+	if next(b) ~= nil then
 		local to = b.at
-		local goal = {
+		instanceh.tween(adornment, {
+			Radius = b.radius;
+			---
 			Adornee = b.adornee;
 			AdornCullingMode = b.adorncullingmode;
 			SizeRelativeOffset = b.sizerelativeoffset;
-			AlwaysOnTop = b.alwaysontop;
 			ZIndex = b.zindex;
 
 			Color3 = b.color;
 			Transparency = b.transparency;
+			Shading = b.shading;
 			Visible = b.visible;
 
 			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
-			
-			Radius = b.radius;
 
 			Parent = b.parent;
-		}
+		}, time)
 
-		if next(goal) ~= nil then
-			instanceh.tween(adornment, goal, b.time)
-		end
-
-		if b.destroy then
-			task.delay(b.time, adornment.Destroy, adornment)
+		if destroy then
+			task.delay(time, adornment.Destroy, adornment)
 		end
 	end
 
@@ -647,23 +641,37 @@ function instanceh.spherehandleadornment(
 end
 
 --- type describing light class
-type lightbase = {
+type lightsupertype = {
 	brightness: number?;
 	color: Color3?;
 	enabled: boolean?;
 	shadows: boolean?;
 	
 	parent: Instance?;
+
+	range: number?;
+	angle: number?;
+	face: Enum.NormalId?;
 }
 
---- type describing light transform (tween) args
-type lighttransform = {
+type lighttransformsupertype = {
+	brightness: {number}?;
+	color: {Color3}?;
+	enabled: {boolean}?;
+	shadows: {boolean}?;
+	
+	parent: {Instance}?;
+
+	range: {number}?;
+	angle: {number}?;
+	face: {Enum.NormalId}?;
+	
 	time: number;
 	destroy: boolean;
 }
 
 --- sets light base properties
-local function setlightbaseproperties(light: Light, a: lightbase)
+local function setlightbaseproperties(light: Light, a: {at: CFrame|Vector3} & lightsupertype)
 	if a.brightness then
 		light.Brightness = a.brightness
 	end
@@ -677,139 +685,154 @@ local function setlightbaseproperties(light: Light, a: lightbase)
 		light.Shadows = a.shadows
 	end
 
-	if a.parent then
-		light.Parent = a.parent
+	if light:IsA("PointLight") then
+		if a.range ~= nil then
+			light.Range = a.range
+		end
+	elseif light:IsA("SpotLight") then
+		if a.range ~= nil then
+			light.Range = a.range
+		end
+		if a.angle ~= nil then
+			light.Angle = a.angle
+		end
+		if a.face ~= nil then
+			light.Face = a.face
+		end
+	elseif light:IsA("SurfaceLight") then
+		if a.range ~= nil then
+			light.Range = a.range
+		end
+		if a.angle ~= nil then
+			light.Angle = a.angle
+		end
+		if a.face ~= nil then
+			light.Face = a.face
+		end
+	else
+		warn(string.format("unaccounted class '%s'", light.ClassName))
 	end
+
+	local attachment = Instance.new("Attachment")
+	attachment.Name = light.ClassName .. "Attachment"
+	attachment.Parent = a.parent or workspace.Terrain
+	
+	local at = a.at
+	if typeof(at) == "Vector3" then
+		attachment.CFrame = CFrame.new(at)
+	elseif typeof(at) == "CFrame" then
+		attachment.CFrame = at
+	else
+		warn(string.format("could not place light attachment; expected vector3 or cframe, got %s", typeof(at)))
+		attachment.CFrame = CFrame.identity
+	end
+
+	light.Parent = attachment
+
+	return attachment
 end
 
---- instantiates a `PointLight` with initial properties `a` and optionally-transforms it toward goal `b`
-function instanceh.pointlight(
-	a: {
-		range: number;
-	} & lightbase,
-	b: ({
-		range: number?;
-	} & lightbase & lighttransform)?
-)
+--- instantiates and optionally-transforms a `PointLight` \
+--- `CFrame` and `Parent` properties are applied to an `Attachment`
+function instanceh.pointlight(params: lighttransformsupertype)
 	local light = Instance.new("PointLight")
-	setlightbaseproperties(light, a)
+	local a, b, time, destroy = createab(params::any)
 
-	light.Range = a.range
+	local attachment = setlightbaseproperties(light, a)
 
-	if b then
-		local goal = {
+	if next(b) ~= nil then
+		local to = b.at
+
+		instanceh.tween(attachment, {
+			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
+			Parent = b.parent;
+		}, time)
+
+		instanceh.tween(light, {
+			Range = b.range;
+			---
 			Brightness = b.brightness;
 			Color = b.color;
 			Enabled = b.enabled;
 			Shadows = b.shadows;
+		}, time)
 
-			Range = b.range;
-
-			Parent = b.parent;
-		}
-
-		if next(goal) ~= nil then
-			instanceh.tween(light, goal, b.time)
-		end
-
-		if b.destroy then
-			task.delay(b.time, light.Destroy, light)
+		if destroy then
+			task.delay(time, light.Destroy, light)
 		end
 	end
 
-	return light
+	return light, attachment
 end
 
---- instantiates a `SpotLight` with initial properties `a` and optionally-transforms it toward goal `b`
-function instanceh.spotlight(
-	a: {
-		range: number;
-		face: Enum.NormalId;
-		angle: number;
-	} & lightbase,
-	b: ({
-		range: number?;
-		face: Enum.NormalId?;
-		angle: number?;
-	} & lightbase & lighttransform)?
-)
+--- instantiates and optionally-transforms a `SpotLight` \
+--- `CFrame` and `Parent` properties are applied to an `Attachment`
+function instanceh.spotlight(params: lighttransformsupertype)
 	local light = Instance.new("SpotLight")
-	setlightbaseproperties(light, a)
+	local a, b, time, destroy = createab(params::any)
 
-	light.Range = a.range
-	light.Face = a.face
-	light.Angle = a.angle
+	local attachment = setlightbaseproperties(light, a)
 
-	if b then
-		local goal = {
-			Brightness = b.brightness;
-			Color3 = b.color;
-			Enabled = b.enabled;
-			Shadows = b.shadows;
+	if next(b) ~= nil then
+		local to = b.at
 
+		instanceh.tween(attachment, {
+			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
+			Parent = b.parent;
+		}, time)
+
+		instanceh.tween(light, {
 			Range = b.range;
 			Face = b.face;
 			Angle = b.angle;
+			---
+			Brightness = b.brightness;
+			Color = b.color;
+			Enabled = b.enabled;
+			Shadows = b.shadows;
+		}, time)
 
-			Parent = b.parent;
-		}
-
-		if next(goal) ~= nil then
-			instanceh.tween(light, goal, b.time)
-		end
-
-		if b.destroy then
-			task.delay(b.time, light.Destroy, light)
+		if destroy then
+			task.delay(time, light.Destroy, light)
 		end
 	end
 
-	return light
+	return light, attachment
 end
 
---- instantiates a `SurfaceLight` with initial properties `a` and optionally-transforms it toward goal `b`
-function instanceh.surfacelight(
-	a: {
-		range: number;
-		face: Enum.NormalId;
-		angle: number;
-	} & lightbase,
-	b: ({
-		range: number?;
-		face: Enum.NormalId?;
-		angle: number?;
-	} & lightbase & lighttransform)?
-)
+--- instantiates and optionally-transforms a `SurfaceLight` \
+--- `CFrame` and `Parent` properties are applied to an `Attachment`
+function instanceh.surfacelight(params: lighttransformsupertype)
 	local light = Instance.new("SurfaceLight")
-	setlightbaseproperties(light, a)
+	local a, b, time, destroy = createab(params::any)
 
-	light.Range = a.range
-	light.Face = a.face
-	light.Angle = a.angle
+	local attachment = setlightbaseproperties(light, a)
 
-	if b then
-		local goal = {
-			Brightness = b.brightness;
-			Color3 = b.color;
-			Enabled = b.enabled;
-			Shadows = b.shadows;
+	if next(b) ~= nil then
+		local to = b.at
 
+		instanceh.tween(attachment, {
+			CFrame = typeof(to) == "Vector3" and CFrame.new(to) or typeof(to) == "CFrame" and to or nil;
+			Parent = b.parent;
+		}, time)
+
+		instanceh.tween(light, {
 			Range = b.range;
 			Face = b.face;
 			Angle = b.angle;
+			---
+			Brightness = b.brightness;
+			Color = b.color;
+			Enabled = b.enabled;
+			Shadows = b.shadows;
+		}, time)
 
-			Parent = b.parent;
-		}
-
-		if next(goal) ~= nil then
-			instanceh.tween(light, goal, b.time)
-		end
-
-		if b.destroy then
-			task.delay(b.time, light.Destroy, light)
+		if destroy then
+			task.delay(time, light.Destroy, light)
 		end
 	end
 
-	return light
+	return light, attachment
 end
 
 --- instantiates a minimal static `Part`
