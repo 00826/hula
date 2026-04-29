@@ -48,8 +48,6 @@ local mathh = {
 		zeroone = NumberRange.new(0, 1);
 	};
 
-	phi = (1 + 5^0.5) * 0.5;
-
 	random = Random.new();
 }
 
@@ -103,13 +101,13 @@ function mathh.elo(a: number, ascore: number, b: number, bscore: number, k: numb
 end
 
 --- returns winner of rally point game with minimum `score` given team 1 points `k` and team 2 points `k` \
---- `rallypoint(25, 24, 25) -> 0` \
---- `rallypoint(25, 25, 27) -> 2` \
---- `rallypoint(25, 25, 0) -> 1`
-function mathh.rallypoint(score: number, h: number, k: number)
-	if (h >= score) and (h - k >= 2) then
+--- `rallypoint(25, 24, 2, 25) -> 0` \
+--- `rallypoint(25, 25, 2, 27) -> 2` \
+--- `rallypoint(25, 25, 2, 0) -> 1`
+function mathh.rallypoint(score: number, winby: number, h: number, k: number)
+	if (h >= score) and (h - k >= winby) then
 		return 1
-	elseif (k >= score) and (k - h >= 2) then
+	elseif (k >= score) and (k - h >= winby) then
 		return 2
 	end
 
@@ -231,7 +229,7 @@ end
 
 --- advances spring by `dt`
 function mathh.springstep(s: typeof(mathh.createspring(...)), dt: number)
-	local freq = s.frequency * 2 * math.pi --- Convert from Hz to rad/s
+	local freq = s.frequency * math.tau --- Convert from Hz to rad/s
 	local distance = s.distance
 	local velocity = s.velocity
 	local mindistance = s.mindistance

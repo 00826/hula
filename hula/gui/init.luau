@@ -129,6 +129,8 @@ export type textparams = {
 	richtext: boolean?;
 	--- `?=textscaled ~= nil and textscaled or true`
 	textscaled: boolean?;
+	--- `?=textscaled ~= nil and textscaled or false`
+	textwrapped: boolean?;
 	--- `?=arimo`
 	font: Enum.Font?;
 	--- `?=color3.fromrgb(255, 255, 255)`
@@ -367,20 +369,20 @@ type rbxthumb =
 local gui = {
 	--- shorthand numbersequences
 	numbersequences = {
-		zero = NumberSequence.new(0.000);
-		half = NumberSequence.new(0.500);
-		one = NumberSequence.new(1.000);
+		zero = NumberSequence.new(0.0000);
+		half = NumberSequence.new(0.5000);
+		one = NumberSequence.new(1.0000);
 		stepzeroone = NumberSequence.new({
-			NumberSequenceKeypoint.new(0.000, 0),
-			NumberSequenceKeypoint.new(0.499, 0),
-			NumberSequenceKeypoint.new(0.501, 1),
-			NumberSequenceKeypoint.new(1.000, 1),
+			NumberSequenceKeypoint.new(0.0000, 0),
+			NumberSequenceKeypoint.new(0.4999, 0),
+			NumberSequenceKeypoint.new(0.5001, 1),
+			NumberSequenceKeypoint.new(1.0000, 1),
 		});
 		steponezero = NumberSequence.new({
-			NumberSequenceKeypoint.new(0.000, 1),
-			NumberSequenceKeypoint.new(0.499, 1),
-			NumberSequenceKeypoint.new(0.501, 0),
-			NumberSequenceKeypoint.new(1.000, 0),
+			NumberSequenceKeypoint.new(0.0000, 1),
+			NumberSequenceKeypoint.new(0.4999, 1),
+			NumberSequenceKeypoint.new(0.5001, 0),
+			NumberSequenceKeypoint.new(1.0000, 0),
 		});
 	};
 	--- shorthand `Rect.new(0, 0, 0, 0)`
@@ -540,6 +542,7 @@ end
 function gui.writetext(guitextobject: TextButton|TextLabel, textparams: textparams)
 	guitextobject.Text = textparams.text or ""
 	guitextobject.RichText = if textparams.richtext ~= nil then textparams.richtext else true
+	guitextobject.TextWrapped = if textparams.textwrapped ~= nil then textparams.textwrapped else false
 	guitextobject.TextScaled = if textparams.textscaled ~= nil then textparams.textscaled else false
 	guitextobject.Font = textparams.font or Enum.Font.Arimo
 	guitextobject.TextColor3 = textparams.textcolor or Color3.fromRGB(255, 255, 255)
@@ -554,7 +557,7 @@ function gui.writeviewport(viewportframe: ViewportFrame, viewportparams: viewpor
 	viewportframe.LightColor = viewportparams.lightcolor or Color3.fromRGB(255, 255, 255)
 	viewportframe.LightDirection = viewportparams.lightdirection or Vector3.new(-0.707, -1, 0.707)
 	viewportframe.Ambient = viewportparams.ambient or Color3.fromRGB(148, 148, 148)
-	viewportframe.CurrentCamera = viewportparams.currentcamera or nil::any
+	viewportframe.CurrentCamera = viewportparams.currentcamera or nil
 	viewportframe.ImageColor3 = viewportparams.imagecolor or Color3.fromRGB(255, 255, 255)
 	viewportframe.ImageTransparency = viewportparams.imagetransparency or 0
 end
@@ -578,6 +581,8 @@ function gui.createframe(params: appearance & alignmentparams)
 
 	gui.writeappearance(frame, params)
 	gui.writealignment(frame, params)
+	
+	frame.Active = if params.active ~= nil then params.active else false
 
 	return frame
 end
@@ -753,12 +758,19 @@ function gui.createsurfacegui(params: surfaceparams)
 	return surfacegui
 end
 
+--- creates a `WorldModel`
+function gui.createworldmodel()
+	local worldmodel = Instance.new("WorldModel")
+
+	return worldmodel
+end
+
 --- creates a stepped numbersequence \
---- `number padding(?=0.001)`: appended to keypoint time to avoid certain inconsistencies
+--- `number padding(?=0.0001)`: appended to keypoint time to avoid certain inconsistencies
 function gui.createsteppednumbersequence(steps: number, padding: number?)
 	local keypoints = table.create(2*steps)::{NumberSequenceKeypoint}
 
-	padding = padding or 0.001
+	padding = padding or 0.0001
 	local step = 1 / steps
 	for i = 1, steps do
 		local value = i * step
@@ -834,7 +846,10 @@ function gui.createtree(t: tree)
 			copy:SetAttribute(gui.treetagsflag, tagstring)
 
 			if copy:IsA("GuiObject") then
-				copy.LayoutOrder = i
+				--- only write to layoutorder if not 1
+				if copy.LayoutOrder == 0 then
+					copy.LayoutOrder = i * 100
+				end
 			end
 
 			if contains then
@@ -853,13 +868,13 @@ function gui.createtree(t: tree)
 	return result
 end
 
---- queries `gui.createtree(...)` return type
+--- queries matching branches of `gui.createtree(...)`
 function gui.treequery(r: typeof(gui.createtree(...)), params: {
 	name: string?;
 	copy: number?;
 	tags: {string}?;
 })
-	local result = table.create(#r)::{Instance}
+	local result = table.create(#r)::typeof(gui.createtree())
 
 	for _, branch in ipairs(r) do
 		local instance = branch.instance
@@ -879,7 +894,7 @@ function gui.treequery(r: typeof(gui.createtree(...)), params: {
 		end
 
 		if copymatch and namematch and tagmatch then
-			table.insert(result, instance)
+			table.insert(result, branch)
 		end
 
 		local reresult = gui.treequery(branch.contains, params)
@@ -897,7 +912,7 @@ end
 gui.getcore = getcore
 
 local setcore: setcore = function(parameter, value)
-	StarterGui:SetCore(parameter)
+	StarterGui:SetCore(parameter, value)
 end
 
 --- returns `StarterGui:SetCore(parameter, value)`
@@ -1030,6 +1045,11 @@ function gui.getguiobjectsatposition(list: {GuiObject}, insetmouselocation: Vect
 	end)
 	
 	return inbounds
+end
+
+--- returns aspect ratio of container that is intended to fit a grid of `columns * rows` elements with an aspect ratio of `elementaspectratio`
+function gui.aspectratio(aspectratio: number, columns: number, rows: number)
+	return aspectratio * (columns / rows)
 end
 
 return gui

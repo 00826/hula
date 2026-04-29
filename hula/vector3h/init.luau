@@ -119,31 +119,36 @@ function vector3h.pointtoworldspace(point: Vector3, position: Vector3, lookvecto
 end
 
 --- returns normal of nearest normal on obb formed by `position` with orientation of `lookvector, upvector(?=Vector3.yAxis)`
-function vector3h.nearestnormalonbox(point: Vector3, position: Vector3, lookvector: Vector3, upvector: Vector3?)
+function vector3h.nearestnormalonbox(point: Vector3, position: Vector3, size: Vector3, lookvector: Vector3, upvector: Vector3?)
 	upvector = upvector or Vector3.yAxis
-	local rightvector = (vector.cross(lookvector::any, upvector::any)::any)::Vector3
+
+	local objectspace = vector3h.pointtoobjectspace(point, position, lookvector, upvector)
+	local unit = vector3h.normalize(objectspace)
 
 	local dot = -math.huge
-	local normal = lookvector
-	
-	local unit = vector3h.normalize(point - position)
+	local normal = unit
+
+	local s = 1 / size
+	local ux = Vector3.xAxis * s
+	local uy = Vector3.yAxis * s
+	local uz = Vector3.zAxis * s
 
 	for _, v in ipairs({
-		upvector;
-		-upvector;
-		lookvector;
-		-lookvector;
-		rightvector;
-		-rightvector;
+		ux;
+		-ux;
+		uy;
+		-uy;
+		uz;
+		-uz;
 	}) do
 		local d = vector3h.dot(unit, v)
 		if d > dot then
 			dot = d
-			normal = v
+			normal = vector3h.normalize(v)
 		end
 	end
 
-	return normal
+	return vector3h.pointtoworldspace(normal, Vector3.zero, lookvector, upvector)
 end
 
 --- writes non-zero components of `w` onto `v`
@@ -220,7 +225,7 @@ function vector3h.nextunitspread(v: Vector3, radians: number, R: Random?)
 	--- produces spherical coordinates
 	local cos = (R or random):NextNumber(math.cos(radians), 1)
 	local sin = (1 - cos * cos)^0.5
-	local phi = (R or random):NextNumber(0, 2*math.pi)
+	local phi = (R or random):NextNumber(0, math.tau)
 
 	local x = sin * math.cos(phi)
 	local y = sin * math.sin(phi)
@@ -241,25 +246,25 @@ end
 --- returns random point *in* `x,z` radius
 function vector3h.nextpointinradius(radius: number, R: Random?)
 	local r = radius * ((R or random):NextNumber()^0.5)
-	local theta = (R or random):NextNumber() * 2 * math.pi
+	local theta = (R or random):NextNumber() * math.tau
 
 	return (Vector3.xAxis * r * math.cos(theta)) + (Vector3.zAxis * r * math.sin(theta))
 end
 
 --- returns random point *on* `x,z` radius
 function vector3h.nextpointonradius(radius: number, R: Random?)
-	local theta = (R or random):NextNumber() * 2 * math.pi
+	local theta = (R or random):NextNumber() * math.tau
 	
 	return Vector3.new(radius * math.cos(theta), 0, radius * math.sin(theta))
 end
 
---- returns unit circle with `v` vertices
-function vector3h.unitcircle(v: number)
+--- returns unit circle with `v` vertices and initial rotation `r`
+function vector3h.unitcircle(v: number, r: number)
 	local circle = table.create(v)::{Vector3}
 
-	local step = (2 * math.pi) / v
+	local step = math.tau / v
 	for i = 0, v - 1, 1 do
-		local theta = i * step
+		local theta = r + (i * step)
 		table.insert(circle, Vector3.new(math.cos(theta), 0, math.sin(theta)))
 	end
 
@@ -273,7 +278,7 @@ end
 
 --- returns unit vector `v` reflected against unit vector `w`
 function vector3h.reflect(v: Vector3, w: Vector3)
-	return 2 * vector.dot(v::any, w::any) * w - v
+	return v - (2 * vector.dot(v::any, w::any) * w)
 end
 
 --- returns rotation of unit vector `v` along `axis`
@@ -573,17 +578,25 @@ function vector3h.distancefromsphere(point: Vector3, position: Vector3, radius: 
 end
 
 --- returns position of a projectile given its initial `velocity`, elapsed `time`, and `acceleration`
-function vector3h.projectileresolveoffset(initialposition: Vector3, velocity: Vector3, time: number, acceleration: Vector3): Vector3
+function vector3h.projectilesolveoffset(initialposition: Vector3, velocity: Vector3, time: number, acceleration: Vector3): Vector3
 	return initialposition + (vector.normalize(velocity::any)::any * (vector.magnitude(velocity::any) * time)) + ((0.5 * Vector3.yAxis) * acceleration * (time * time))
+end
+
+function vector3h.projectilesolvetime(height: number, velocity: Vector3, acceleration: Vector3)
+	local vy = velocity.Y
+	local gravity = acceleration.Y
+	local t = (-vy - (((vy * vy) - 2 * height * gravity) ^ 0.5)) / gravity
+
+	return t
 end
 
 --- returns initial velocity and time-to-reach-targetposition of projectile \
 --- `sign == 1`: collides while ascending \
 --- `sign == -1`: collides while descending \
-function vector3h.projectileresolveinitialvelocity(initialposition: Vector3, targetposition: Vector3, acceleration: Vector3, vy: number, sign: number)
+function vector3h.projectilesolveinitialvelocity(initialposition: Vector3, targetposition: Vector3, acceleration: Vector3, vy: number, sign: number)
 	local deltaheight = initialposition.Y - targetposition.Y
 	local gravity = acceleration.Y
-	local t = (-vy - (sign * (((vy * vy) - 2 * (deltaheight) * gravity) ^ 0.5))) / gravity
+	local t = (-vy - (sign * (((vy * vy) - 2 * deltaheight * gravity) ^ 0.5))) / gravity
 
 	return Vector3.new(
 		(targetposition.X - initialposition.X) / t,

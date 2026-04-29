@@ -40,8 +40,8 @@ local function readu24(b: buffer, offset: number)
 end
 
 export type block =
-	| { type: "byte"; key: string; width: number; read: (buffer, number, ...any) -> any; write: (buffer, number, ...any) -> (); }
-	| { type: "bit"; key: string; width: number; read: (buffer, number, number) -> any; write: (buffer, number, number, number) -> (); }
+	| { key: string; type: "byte"; width: number; read: (buffer, number, ...any) -> any; write: (buffer, number, ...any) -> (); }
+	| { key: string; type: "bit"; width: number; read: (buffer, number, number) -> any; write: (buffer, number, number, number) -> (); }
 
 --- ### bufferh.luau
 ---
@@ -378,6 +378,21 @@ end
 --- equivalent to `1 + math.log(value, 2) // 1`
 function bufferh.numbits(value: number)
 	return 1 + math.log(value, 2) // 1
+end
+
+--- returns # of 1 bits
+function bufferh.popcount(x: number)
+	local result = 0
+	local shift = 1
+	for i = 0, 31 do
+		if bit32.btest(x, shift) then
+			result += 1
+		end
+		
+		shift = bit32.lshift(shift, 1)
+	end
+	
+	return result
 end
 
 --- creates a typed buffer

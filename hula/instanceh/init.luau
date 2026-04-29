@@ -8,24 +8,17 @@ local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 
+local random = Random.new()
+
 --- ### instanceh.luau
 ---
 --- Instance library extension
 local instanceh = {
 	accessoryflag = "h_accessory";
+	accessoryoriginalsizeflag = "h_accessoryoriginalsize";
 	accessorycontainerflag = "h_accessories";
 	appearanceflag = "h_appearancedescription";
 	appearancemap = {
-		accessoryproperties = {
-			"BackAccessory";
-			"FaceAccessory";
-			"FrontAccessory";
-			"HairAccessory";
-			"HatAccessory";
-			"NeckAccessory";
-			"ShouldersAccessory";
-			"WaistAccessory";
-		};
 		bodycolorproperties = {
 			"HeadColor";
 			"TorsoColor";
@@ -190,68 +183,54 @@ function instanceh.weldconstraint(a: BasePart, b: BasePart, offset: CFrame?, for
 	return weld
 end
 
+local function nextequalizer(config: {["low"|"mid"|"high"]: {number}})
+	local equalizersoundeffect = Instance.new("EqualizerSoundEffect")
+
+	local high, mid, low = config.high, config.mid, config.low
+	equalizersoundeffect.HighGain = random:NextNumber(high[1], high[2])
+	equalizersoundeffect.MidGain = random:NextNumber(mid[1], mid[2])
+	equalizersoundeffect.LowGain = random:NextNumber(low[1], low[2])
+
+	return equalizersoundeffect
+end
+
 --- emits sound at optional position or instance
-function instanceh.sound(sound: Sound, at: (Vector3|Instance)?, playbackspeed: number?, timeposition: number?)
+function instanceh.sound(sound: Sound, at: (Vector3|Instance)?, playbackspeed: number?, timeposition: number?, equalizerconfig: {["low"|"mid"|"high"]: {number}}?)
+	local attachment = Instance.new("Attachment")
+	attachment.Name = sound.Name .. "Attachment"
+	attachment.Parent = workspace.Terrain
+	
+	local newsound = sound:Clone()
+	newsound.PlaybackSpeed = playbackspeed or 1
+	newsound.TimePosition = timeposition or 0
+
 	if typeof(at) == "Instance" then
-		local real: BasePart? = nil
 		if at:IsA("BasePart") then
-			real = at
+			attachment.Parent = at
 		elseif at:IsA("Model") then
-			real = at.PrimaryPart
-		else
-			assert(`{at.ClassName} {at}`)
+			attachment.Parent = at.PrimaryPart
 		end
-		assert(real)
-
-		local newsound = sound:Clone()
-		newsound.Parent = real
-		newsound.PlaybackSpeed = playbackspeed or 1
-		newsound.TimePosition = timeposition or 0
-		newsound.PlayOnRemove = false
-
-		newsound.Stopped:Once(function()
-			newsound:Destroy()
-		end)
-		newsound.Ended:Once(function()
-			newsound:Destroy()
-		end)
-
-		newsound:Play()
-
-		return newsound
+		newsound.Parent = attachment
 	elseif typeof(at) == "Vector3" then
-		local newpart = Instance.new("Part")
-		newpart.CastShadow = false
-		newpart.Transparency = 1
-		newpart.Anchored = true
-		newpart.CanCollide = false
-		newpart.CanQuery = false
-		newpart.CanTouch = false
-		newpart.Massless = true
-		newpart.Size = Vector3.one
-		newpart.Position = at
-		newpart.Parent = workspace
-
-		local newsound = sound:Clone()
-		newsound.Parent = newpart
-		newsound.PlaybackSpeed = playbackspeed or 1
-		newsound.TimePosition = timeposition or 0
-		newsound.PlayOnRemove = true
-		
-		newpart:Destroy()
-
-		return newsound
+		newsound.Parent = attachment
+		attachment.CFrame = CFrame.new(at)
 	else
-		local newsound = sound:Clone()
 		newsound.Parent = script
-		newsound.PlaybackSpeed = playbackspeed or 1
-		newsound.TimePosition = timeposition or 0
-		newsound.PlayOnRemove = true
-
-		newsound:Destroy()
-
-		return newsound
+		attachment.Parent = script
 	end
+
+	if equalizerconfig then
+		nextequalizer(equalizerconfig).Parent = newsound
+	end
+	
+	newsound:Play()
+
+	newsound.Ended:Once(function()
+		newsound:Destroy()
+		attachment:Destroy()
+	end)
+	
+	return newsound
 end
 
 --- type describing handleadornment class
@@ -446,10 +425,10 @@ function instanceh.boxhandleadornment(params: adornmenttransformsupertype)
 
 			Parent = b.parent;
 		}, time)
+	end
 
-		if destroy then
-			task.delay(time, adornment.Destroy, adornment)
-		end
+	if destroy then
+		task.delay(time, adornment.Destroy, adornment)
 	end
 
 	return adornment
@@ -483,10 +462,10 @@ function instanceh.conehandleadornment(params: adornmenttransformsupertype)
 
 			Parent = b.parent;
 		}, time)
+	end
 
-		if destroy then
-			task.delay(time, adornment.Destroy, adornment)
-		end
+	if destroy then
+		task.delay(time, adornment.Destroy, adornment)
 	end
 
 	return adornment
@@ -521,10 +500,10 @@ function instanceh.cylinderhandleadornment(params: adornmenttransformsupertype)
 
 			Parent = b.parent;
 		}, time)
+	end
 
-		if destroy then
-			task.delay(time, adornment.Destroy, adornment)
-		end
+	if destroy then
+		task.delay(time, adornment.Destroy, adornment)
 	end
 
 	return adornment
@@ -559,10 +538,10 @@ function instanceh.imagehandleadornment(params: adornmenttransformsupertype)
 
 			Parent = b.parent;
 		}, time)
+	end
 
-		if destroy then
-			task.delay(time, adornment.Destroy, adornment)
-		end
+	if destroy then
+		task.delay(time, adornment.Destroy, adornment)
 	end
 
 	return adornment
@@ -596,10 +575,10 @@ function instanceh.pyramidhandleadornment(params: adornmenttransformsupertype)
 
 			Parent = b.parent;
 		}, time)
+	end
 
-		if destroy then
-			task.delay(time, adornment.Destroy, adornment)
-		end
+	if destroy then
+		task.delay(time, adornment.Destroy, adornment)
 	end
 
 	return adornment
@@ -631,10 +610,10 @@ function instanceh.spherehandleadornment(params: adornmenttransformsupertype)
 
 			Parent = b.parent;
 		}, time)
+	end
 
-		if destroy then
-			task.delay(time, adornment.Destroy, adornment)
-		end
+	if destroy then
+		task.delay(time, adornment.Destroy, adornment)
 	end
 
 	return adornment
@@ -756,10 +735,10 @@ function instanceh.pointlight(params: lighttransformsupertype)
 			Enabled = b.enabled;
 			Shadows = b.shadows;
 		}, time)
+	end
 
-		if destroy then
-			task.delay(time, light.Destroy, light)
-		end
+	if destroy then
+		task.delay(time, light.Destroy, light)
 	end
 
 	return light, attachment
@@ -791,10 +770,10 @@ function instanceh.spotlight(params: lighttransformsupertype)
 			Enabled = b.enabled;
 			Shadows = b.shadows;
 		}, time)
+	end
 
-		if destroy then
-			task.delay(time, light.Destroy, light)
-		end
+	if destroy then
+		task.delay(time, light.Destroy, light)
 	end
 
 	return light, attachment
@@ -826,10 +805,10 @@ function instanceh.surfacelight(params: lighttransformsupertype)
 			Enabled = b.enabled;
 			Shadows = b.shadows;
 		}, time)
+	end
 
-		if destroy then
-			task.delay(time, light.Destroy, light)
-		end
+	if destroy then
+		task.delay(time, light.Destroy, light)
 	end
 
 	return light, attachment
@@ -902,10 +881,10 @@ function instanceh.createanimation(id: number|string|Content?)
 end
 
 --- plays animation \
---- `fadetime?=1/30`
+--- `fadetime?=1/24`
 function instanceh.playanimation(animator: Animator, animation: Animation, priority: Enum.AnimationPriority?, speed: number?, fadetime: number?, weight: number?)
 	local animtrack = animator:LoadAnimation(animation)
-	animtrack:Play(fadetime or 1/30, weight, speed)
+	animtrack:Play(fadetime or 1/24, weight, speed)
 	animtrack.Priority = priority or Enum.AnimationPriority.Action
 
 	return animtrack
@@ -1137,24 +1116,18 @@ function instanceh.createappearancedescription(t: {[string]: any} | HumanoidDesc
 	elseif typeof(t) == "Instance" then
 		if t:IsA("HumanoidDescription") then
 			do --- accessories
-				local accessories = table.create(4 * #appearancemap.accessoryproperties)
+				local accessories = {}
 	
-				for _, property in appearancemap.accessoryproperties do
-					local value = (t::any)[property] :: string
-					if value ~= "" then
-						for _, stringid in string.split(value, ",") do
-							table.insert(accessories, tonumber(stringid))
-						end
-					end
+				for _, accessorydescription in t:QueryDescendants("AccessoryDescription") do
+					table.insert(accessories, accessorydescription.AssetId)
 				end
 	
 				result.Accessories = accessories
 			end
 	
 			do --- body colors
-				for _, property in appearancemap.bodycolorproperties do
-					local value = (t::any)[property] :: Color3
-					result[property] = value:ToHex()
+				for _, bodypartdescription in t:QueryDescendants("BodyPartDescription") do
+					result[bodypartdescription.BodyPart.Name .. "Color"] = bodypartdescription.Color:ToHex()
 				end
 			end
 	
@@ -1319,23 +1292,42 @@ function instanceh.createaccessory(assetid: number?)
 	assert(attachment)
 	assert(attachment:IsA("Attachment"))
 
-	handle.Name = tostring(assetid)
-	handle.Locked = false
-	handle.EnableFluidForces = false
-	handle.CanCollide = false
-	handle.CanTouch = false
-	handle.CanQuery = false
-	handle.Massless = true
-	handle.Anchored = false
-	handle.Position = Vector3.zero
-	handle.Size = Vector3.one
-	handle.Parent = script
+	local accessorypart = Instance.new("Part")
+	accessorypart.Name = tostring(assetid)
+	accessorypart.Locked = false
+	accessorypart.EnableFluidForces = false
+	accessorypart.CanCollide = false
+	accessorypart.CanTouch = false
+	accessorypart.CanQuery = false
+	accessorypart.Massless = true
+	accessorypart.Anchored = false
+	accessorypart.Position = Vector3.zero
+	accessorypart.Size = Vector3.one
+	accessorypart.Parent = script
 
-	handle:SetAttribute(instanceh.accessoryflag, true)
+	attachment.Parent = accessorypart
+
+	if handle:IsA("MeshPart") then
+		local specialmesh = Instance.new("SpecialMesh")
+		specialmesh.MeshType = Enum.MeshType.FileMesh
+		specialmesh.MeshId = handle.MeshContent.Uri
+		specialmesh.TextureId = handle.TextureContent.Uri
+		specialmesh.Scale = handle.Size / handle.MeshSize
+		specialmesh.Parent = accessorypart
+
+		accessorypart:SetAttribute(instanceh.accessoryoriginalsizeflag, handle.Size)
+	else
+		local specialmesh = handle:FindFirstChildOfClass("SpecialMesh")
+		if specialmesh then
+			specialmesh.Parent = accessorypart
+		end
+	end
+
+	accessorypart:SetAttribute(instanceh.accessoryflag, true)
 
 	asset:Destroy()
 
-	return handle
+	return accessorypart
 end
 
 --- returns an empty appearance description

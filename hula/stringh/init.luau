@@ -28,6 +28,33 @@ function stringh.create(len: number)
 	return buffer.readstring(b, 0, len)
 end
 
+--- returns # of occurrences of `needle` in `haystack`
+function stringh.countoccurrences(haystack: string, needle: string)
+	local count = 0
+
+	for i = 1, string.len(haystack) do
+		if string.sub(haystack, i, i) == needle then
+			count += 1
+		end
+	end
+
+	return count
+end
+
+--- finds `n`-th match of pattern in the string s and returns the indices of s where the occurrence starts and ends
+function stringh.findnthoccurrence(haystack: string, needle: string, n: number, init: number?)
+	local a, b = string.find(haystack, needle, init)
+	
+	n = n or 0
+	if n <= 1 then
+		return a, b
+	elseif a == nil or b == nil then
+		return a, b
+	else
+		return stringh.findnthoccurrence(haystack, needle, n - 1, b + 1)
+	end
+end
+
 --- formats number as a timestamp string from: \
 --- `selector` string composed of any combination of: (separated by spaces) \
 --- `"dd"`: days \
