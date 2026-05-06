@@ -305,7 +305,7 @@ function patronage.grouppromptjoin(groupid: number)
 end
 
 --- returns `pcall(PolicyService.GetPolicyInfoForPlayerAsync, PolicyService, player)`
-function patronage.policyinfo(player: Player): (boolean, {
+function patronage.readpolicyinfo(player: Player): (boolean, {
 	AreAdsAllowed: boolean;
 	ArePaidRandomItemsRestricted: boolean;
 	AllowedExternalLinkReferences: {string};
@@ -313,11 +313,28 @@ function patronage.policyinfo(player: Player): (boolean, {
 	IsEligibleToPurchaseCommerceProduct: boolean;
 	IsEligibleToPurchaseSubscription: boolean;
 	IsPaidItemTradingAllowed: boolean;
+	IsPhotoToAvatarAllowed: boolean;
 	IsSubjectToChinaPolicies: boolean;
 }?)
-	assert(isserver, "patronage.policyinfo can only be called on server")
+	assert(isserver, "patronage.readpolicyinfo can only be called on server")
 
 	return pcall(PolicyService.GetPolicyInfoForPlayerAsync::any, PolicyService, player)
+end
+
+--- returns `player:GetAttribute(key)`
+function patronage.readpolicykey(
+	player: Player,
+	key: 
+		| "AreAdsAllowed"
+		| "ArePaidRandomItemsRestricted"
+		| "IsContentSharingAllowed"
+		| "IsEligibleToPurchaseCommerceProduct"
+		| "IsEligibleToPurchaseSubscription"
+		| "IsPaidItemTradingAllowed"
+		| "IsPhotoToAvatarAllowed"
+		| "IsSubjectToChinaPolicies"
+)
+	return player:GetAttribute(key)::boolean?
 end
 
 --- returns `pcall(LocalizationService.GetCountryRegionForPlayerAsync, LocalizationService, player)`
@@ -337,6 +354,31 @@ function patronage.unicodetags(player: Player)
 	end
 
 	return result
+end
+
+--- returns true if `funds` can afford expense of `cost`
+function patronage.canafford(funds: {[string]: number}, cost: {[string]: number})
+	for k, v in cost do
+		local value = funds[k] or 0
+		if type(value) ~= "number" then return false end
+		if value - v < 0 then return false end
+	end
+
+	return true
+end
+
+--- adds `t` to `inventory`
+function patronage.add(inventory: {[string]: number}, t: {[string]: number})
+	for k, v in t do
+		inventory[k] = ((inventory[k] or 0) + v) // 1
+	end
+end
+
+--- subtracts `t` from `inventory`
+function patronage.subtract(inventory: {[string]: number}, t: {[string]: number})
+	for k, v in t do
+		inventory[k] = ((inventory[k] or 0) - v) // 1
+	end
 end
 
 return patronage

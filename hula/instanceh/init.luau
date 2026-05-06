@@ -3,6 +3,7 @@
 local RunService = game:GetService("RunService")
 local isserver = RunService:IsServer()
 
+local ContentProvider = game:GetService("ContentProvider")
 local InsertService = game:GetService("InsertService")
 local PhysicsService = game:GetService("PhysicsService")
 local Players = game:GetService("Players")
@@ -157,6 +158,7 @@ end
 function instanceh.camera(cframe: CFrame, fov: number?, name: string?)
 	local camera = Instance.new("Camera")
 	camera.CFrame = cframe
+	camera.Focus = cframe
 	camera.FieldOfView = fov or 70
 	camera.Name = name or "Camera"
 	camera.Parent = workspace
@@ -1231,6 +1233,12 @@ function instanceh.attach(instance: Instance, basepart: BasePart, parent: Instan
 
 	basepart.Parent = parent or instance
 
+	for _, rigidconstraint in instance:QueryDescendants(">RigidConstraint") do
+		rigidconstraint.Attachment0 = nil
+		rigidconstraint.Attachment1 = nil
+		rigidconstraint:Destroy()
+	end
+
 	local constraint = Instance.new("RigidConstraint")
 	constraint.Attachment0 = rigattachment
 	constraint.Attachment1 = accessoryattachment
@@ -1418,9 +1426,7 @@ end
 
 --- `return pcall(contentprovider.PreloadAsync, contentprovider, assets, f)`
 function instanceh.preloadasync(assets: {any}, f: ((contentstring: string, assetfetchstatus: Enum.AssetFetchStatus) -> ())?)
-	local contentprovider = game:GetService("ContentProvider")
-
-	return pcall(contentprovider.PreloadAsync, contentprovider, assets, f::any)
+	return pcall(ContentProvider.PreloadAsync, ContentProvider, assets, f::any)
 end
 
 --- filters list of preload-able asset types \

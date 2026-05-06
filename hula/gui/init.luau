@@ -1052,4 +1052,34 @@ function gui.aspectratio(aspectratio: number, columns: number, rows: number)
 	return aspectratio * (columns / rows)
 end
 
+--- creates a nameplate
+--- ```
+--- billboardgui
+--- └ textlabel
+--- ```
+function gui.createnameplate(text: string, font: Enum.Font, adornee: Instance, parent: Instance)
+	local billboardgui = gui.createbillboardgui({
+		maxdistance = 192;
+		size = UDim2.new(32, 16, 2, 8);
+		lightinfluence = 0;
+		brightness = 1;
+		sizeoffset = Vector2.new(0, 1);
+		studsoffsetworldspace = Vector3.new(0, 2, 0);
+	})
+	billboardgui.Name = "nameplate"
+	billboardgui.Parent = parent
+
+	local textlabel = gui.createtextlabel({
+		text = text;
+		textscaled = true;
+		font = font;
+		textstroketransparency = 1/3;
+		
+		size = UDim2.fromScale(1, 1);
+	})
+	textlabel.Parent = billboardgui
+
+	return billboardgui
+end
+
 return gui
