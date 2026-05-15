@@ -1082,7 +1082,7 @@ function instanceh.resolveplayer(player: Player|number|string|Instance): Player?
 end
 
 --- encodes data type into an appearance description table (datastore-friendly)
-function instanceh.createappearancedescription(t: {[string]: any} | HumanoidDescription | Player | number | string)
+function instanceh.createappearancedescription(t: {[string]: any} | HumanoidDescription | Player | number | string, accessorytypeblacklist: {Enum.AccessoryType}?)
 	local appearancemap = instanceh.appearancemap
 	
 	local result = {}::{[string]: any}
@@ -1110,11 +1110,11 @@ function instanceh.createappearancedescription(t: {[string]: any} | HumanoidDesc
 		local userid = Players:GetUserIdFromNameAsync(t)
 		if userid < 1 then return instanceh.emptydescription() end
 
-		return instanceh.createappearancedescription(userid)
+		return instanceh.createappearancedescription(userid, accessorytypeblacklist)
 	elseif type(t) == "number" then
 		if t < 1 then return instanceh.emptydescription() end
 
-		return instanceh.createappearancedescription(Players:GetHumanoidDescriptionFromUserIdAsync(t))
+		return instanceh.createappearancedescription(Players:GetHumanoidDescriptionFromUserIdAsync(t), accessorytypeblacklist)
 	elseif typeof(t) == "Instance" then
 		if t:IsA("HumanoidDescription") then
 			do --- accessories
@@ -1193,7 +1193,7 @@ function instanceh.createappearancedescription(t: {[string]: any} | HumanoidDesc
 				return instanceh.emptydescription()
 			end
 
-			return instanceh.createappearancedescription(Players:GetHumanoidDescriptionFromUserIdAsync(t.UserId))
+			return instanceh.createappearancedescription(Players:GetHumanoidDescriptionFromUserIdAsync(t.UserId), accessorytypeblacklist)
 		end
 	end
 
@@ -1318,8 +1318,8 @@ function instanceh.createaccessory(assetid: number?)
 	if handle:IsA("MeshPart") then
 		local specialmesh = Instance.new("SpecialMesh")
 		specialmesh.MeshType = Enum.MeshType.FileMesh
-		specialmesh.MeshId = handle.MeshContent.Uri
-		specialmesh.TextureId = handle.TextureContent.Uri
+		specialmesh.MeshId = handle.MeshContent.Uri or ""
+		specialmesh.TextureId = handle.TextureContent.Uri or ""
 		specialmesh.Scale = handle.Size / handle.MeshSize
 		specialmesh.Parent = accessorypart
 
@@ -1378,6 +1378,7 @@ function instanceh.createmixtape(tracklist: {Sound})
 		crossfadespeed = 2;
 		fadeoutstart = 1;
 		volumes = volumes;
+		volumemodifier = 1;
 	}
 end
 
@@ -1388,6 +1389,7 @@ function instanceh.mixtapestep(m: typeof(instanceh.createmixtape(...)), dt: numb
 	for i, track in ipairs(m.tracklist) do
 		track.PlaybackSpeed = m.playbackspeed
 		local originalvolume = m.volumes[i]
+		local modvolume = originalvolume * m.volumemodifier
 		if i == m.track then
 			--- play, fade in
 			if track.TimePosition == 0 then
@@ -1410,15 +1412,15 @@ function instanceh.mixtapestep(m: typeof(instanceh.createmixtape(...)), dt: numb
 				end
 			end
 			
-			if track.Volume ~= originalvolume then
-				track.Volume = math.clamp(track.Volume + (dt * m.crossfadespeed), 0, originalvolume)
+			if track.Volume ~= modvolume then
+				track.Volume = math.clamp(track.Volume + (dt * m.crossfadespeed), 0, modvolume)
 			end
 		else
 			--- fade out, eventually stop
 			if track.Volume == 0 then
 				track:Stop()
 			else
-				track.Volume = math.clamp(track.Volume - (dt * m.crossfadespeed), 0, originalvolume)
+				track.Volume = math.clamp(track.Volume - (dt * m.crossfadespeed), 0, modvolume)
 			end
 		end
 	end

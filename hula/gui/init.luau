@@ -1060,13 +1060,14 @@ end
 function gui.createnameplate(text: string, font: Enum.Font, adornee: Instance, parent: Instance)
 	local billboardgui = gui.createbillboardgui({
 		maxdistance = 192;
-		size = UDim2.new(32, 16, 2, 8);
+		size = UDim2.new(32, 16, 2, 4);
 		lightinfluence = 0;
 		brightness = 1;
 		sizeoffset = Vector2.new(0, 1);
 		studsoffsetworldspace = Vector3.new(0, 2, 0);
 	})
 	billboardgui.Name = "nameplate"
+	billboardgui.Adornee = adornee
 	billboardgui.Parent = parent
 
 	local textlabel = gui.createtextlabel({
