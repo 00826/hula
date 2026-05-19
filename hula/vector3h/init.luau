@@ -439,6 +439,15 @@ end
 
 --- returns \
 --- `vector3 position of intersection` \
+--- ... of ray starting at `rayposition` in `raydirection` and plane at `planeposition` with normal `planenormal`
+function vector3h.rayintersectplane(rayposition: Vector3, raydirection: Vector3, planeposition: Vector3, planenormal: Vector3)
+	local dot = vector.dot(planeposition::any - rayposition::any, planenormal::any) / vector.dot(raydirection::any, planenormal::any)
+
+	return dot * raydirection + rayposition
+end
+
+--- returns \
+--- `vector3 position of intersection` \
 --- `vector3 normal of intersection` \
 --- `number distance until intersection` \
 --- ... of two bounding spheres defined by a position and radius
@@ -500,12 +509,12 @@ end
 
 --- returns whether axis-aligned boxes `a` and `b` intersect
 function vector3h.isboxintersectingbox(aposition: Vector3, asize: Vector3, bposition: Vector3, bsize: Vector3)
-	local abs = 2 * vector.abs(aposition - bposition::any)
+	local abs = 2 * (vector.abs(aposition - bposition::any)::any)::Vector3
 	local sum = asize + bsize
 
-	return	abs.x < sum.x
-		and abs.y < sum.y
-		and abs.z < sum.z
+	return	abs.X < sum.X
+		and abs.X < sum.Y
+		and abs.Z < sum.Z
 end
 
 --- returns: \

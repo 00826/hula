@@ -763,7 +763,7 @@ end
 --- when called on client, returns `localplayer:GetNetworkPing() * 1000` \
 --- otherwise returns 0
 function net.localpingms()
-	return if isserver then (localplayer:GetNetworkPing() * 1000) else 0
+	return if not isserver then (localplayer:GetNetworkPing() * 1000) else 0
 end
 
 --- returns `player:GetNetworkPing() * 1000`

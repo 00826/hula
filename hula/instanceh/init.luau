@@ -1121,6 +1121,12 @@ function instanceh.createappearancedescription(t: {[string]: any} | HumanoidDesc
 				local accessories = {}
 	
 				for _, accessorydescription in t:QueryDescendants("AccessoryDescription") do
+					if accessorytypeblacklist then
+						if table.find(accessorytypeblacklist, accessorydescription.AccessoryType) then
+							continue
+						end
+					end
+					
 					table.insert(accessories, accessorydescription.AssetId)
 				end
 	

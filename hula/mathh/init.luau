@@ -51,6 +51,11 @@ local mathh = {
 	random = Random.new();
 }
 
+--- rounds `x` to the nearest mutliple of `y`
+function mathh.mround(x: number, y: number)
+	return -(x // -y) * y
+end
+
 --- returns interpolant with respect to deltatime (`1 - (x ^ dt)`) \
 --- `x` is ideally passed in `e-` notation form (such as `10e-11`)
 function mathh.interpolant(x: number, dt: number)
