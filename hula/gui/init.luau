@@ -743,7 +743,7 @@ function gui.createsurfacegui(params: surfaceparams)
 	surfacegui.Active = if params.active ~= nil then params.active else false
 	surfacegui.Adornee = params.adornee
 	surfacegui.AlwaysOnTop = if params.alwaysontop ~= nil then params.alwaysontop else false
-	surfacegui.Brightness = params.brightness or 0
+	surfacegui.Brightness = params.brightness or 1
 	surfacegui.LightInfluence = params.lightinfluence or 0
 	surfacegui.Enabled = if params.enabled ~= nil then params.enabled else true
 	surfacegui.Face = params.face or Enum.NormalId.Front
