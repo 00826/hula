@@ -1024,7 +1024,7 @@ function instanceh.createtransparencycontroller(thing: Instance)
 		end
 	end)
 
-	controller.Disconnect = function()
+	controller.disconnect = function()
 		controller.disconnected = true
 		if controller.descendantadded then
 			controller.descendantadded:Disconnect()
@@ -1151,12 +1151,16 @@ function instanceh.createappearancedescription(t: {[string]: any} | HumanoidDesc
 					end
 
 					if property == "Face" then
-						local insertmodel = InsertService:LoadAsset(value)
-						local thing = insertmodel:FindFirstChildOfClass("Decal")
-						if thing then
-							result[property] = thing.Texture
-							
-							insertmodel:Destroy()
+						local insertsuccess, insertmodel = pcall(InsertService.LoadAsset, InsertService, value)
+						if insertsuccess then
+							local thing = insertmodel:FindFirstChildOfClass("Decal")
+							if thing then
+								result[property] = thing.Texture
+								
+								insertmodel:Destroy()
+							end
+						else
+							warn("instanceh.createappearancedescription() error (face):", insertmodel)
 						end
 						continue
 					end
@@ -1173,20 +1177,24 @@ function instanceh.createappearancedescription(t: {[string]: any} | HumanoidDesc
 						continue
 					end
 
-					local insertmodel = InsertService:LoadAsset(value)
-					local thing = insertmodel:FindFirstChildOfClass("Shirt") or insertmodel:FindFirstChildOfClass("Pants") or insertmodel:FindFirstChildOfClass("ShirtGraphic")
-					if thing then
-						if thing:IsA("Shirt") then
-							result[property] = "rbxassetid://" .. (string.match(thing.ShirtTemplate, "%d+") or "0")
-						elseif thing:IsA("Pants") then
-							result[property] = "rbxassetid://" .. (string.match(thing.PantsTemplate, "%d+") or "0")
-						elseif thing:IsA("ShirtGraphic") then
-							result[property] = "rbxassetid://" .. (string.match(thing.Graphic, "%d+") or "0")
-						end
+					local insertsuccess, insertmodel = pcall(InsertService.LoadAsset, InsertService, value)
+					if insertsuccess then
+						local thing = insertmodel:FindFirstChildOfClass("Shirt") or insertmodel:FindFirstChildOfClass("Pants") or insertmodel:FindFirstChildOfClass("ShirtGraphic")
+						if thing then
+							if thing:IsA("Shirt") then
+								result[property] = "rbxassetid://" .. (string.match(thing.ShirtTemplate, "%d+") or "0")
+							elseif thing:IsA("Pants") then
+								result[property] = "rbxassetid://" .. (string.match(thing.PantsTemplate, "%d+") or "0")
+							elseif thing:IsA("ShirtGraphic") then
+								result[property] = "rbxassetid://" .. (string.match(thing.Graphic, "%d+") or "0")
+							end
 
-						insertmodel:Destroy()
+							insertmodel:Destroy()
+						else
+							warn("shirt or pants or shirtgraphic not found")
+						end
 					else
-						warn("shirt or pants or shirtgraphic not found")
+						warn("instanceh.createappearancedescription() error (clothing):", insertmodel)
 					end
 				end
 			end

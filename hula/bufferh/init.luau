@@ -395,6 +395,51 @@ function bufferh.popcount(x: number)
 	return result
 end
 
+--- concatcenates a set of buffers \
+--- returns: \
+--- buffer `concat` operation result \
+--- separator buffer `separator` used by `bufferh.split()` to undo the concatcenation
+function bufferh.concat(t: {buffer})
+	local len = #t
+	local separator = buffer.create(2 * len)
+	local size = 0
+	for i, b in ipairs(t) do
+		local bufferlen = buffer.len(b)
+		size += bufferlen
+		buffer.writeu16(separator, 2 * (i - 1), bufferlen)
+	end
+
+	local result = buffer.create(size)
+	local cursor = 0
+	for i = 1, len do
+		local range = buffer.readu16(separator, 2 * (i - 1))
+		buffer.copy(result, cursor, t[i], 0, range)
+
+		cursor += range
+	end
+
+	return result, separator
+end
+
+--- splits buffer `concat` wrt buffer `separator`
+function bufferh.split(concat: buffer, separator: buffer)
+	local len = buffer.len(separator) // 2
+	local result = table.create(len)::{buffer}
+
+	local cursor = 0
+	for i = 1, len do
+		local range = buffer.readu16(separator, 2 * (i - 1))
+		local b = buffer.create(range)
+		buffer.copy(b, 0, concat, cursor, range)
+		
+		table.insert(result, b)
+
+		cursor += range
+	end
+
+	return result
+end
+
 --- creates a typed buffer
 function bufferh.createtyped(t: {block})
 	local bitsize = 0

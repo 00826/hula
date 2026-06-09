@@ -286,11 +286,16 @@ function color3h.fromconstant(w: number)
 	return Color3.fromRGB(w, w, w)
 end
 
---- adjusts color3 saturation
-function color3h.saturation(c: Color3, value: number)
+--- returns color3 rotated about the color wheel by radians \
+--- complementary: `math.rad(180)` \
+--- triadic: `math.rad(120), math.rad(240)`
+function color3h.rotate(c: Color3, radians: number)
 	local h, s, v = c:ToHSV()
 
-	return Color3.fromHSV(h, math.clamp(s + (value / 100), 0, 1), v)
+	--- h += radians / math.tau
+	--- h %= 1
+
+	return Color3.fromHSV((h + (radians / math.tau)) % 1, s, v)
 end
 
 --- returns approximate sort value of color3 \

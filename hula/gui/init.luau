@@ -121,6 +121,26 @@ export type spriteparams = {
 	sheet: number|string|Content;
 }
 
+--- type describing textbox properties
+export type textboxparams = {
+	--- `?=true`
+	cleartextonfocus: boolean?;
+	--- `?=1`
+	cursorposition: number?;
+	--- `?=false`
+	multiline: boolean?;
+	--- `?=color3.fromrgb(127, 127, 127)`
+	placeholdercolor3: Color3?;
+	--- `?=""`
+	placeholdertext: string?;
+	--- `?=-1`
+	selectionstart: number?;
+	--- `?=true`
+	shownativeinput: boolean?;
+	--- `?=true`
+	texteditable: boolean?;
+}
+
 --- type describing textlabel properties
 export type textparams = {
 	--- `?=""`
@@ -539,7 +559,7 @@ function gui.writesprite(imagelabel: ImageButton|ImageLabel, spriteparams: sprit
 end
 
 --- writes text properties to `GuiObject`
-function gui.writetext(guitextobject: TextButton|TextLabel, textparams: textparams)
+function gui.writetext(guitextobject: TextButton|TextLabel|TextBox, textparams: textparams)
 	guitextobject.Text = textparams.text or ""
 	guitextobject.RichText = if textparams.richtext ~= nil then textparams.richtext else true
 	guitextobject.TextWrapped = if textparams.textwrapped ~= nil then textparams.textwrapped else false
@@ -550,6 +570,18 @@ function gui.writetext(guitextobject: TextButton|TextLabel, textparams: textpara
 	guitextobject.TextStrokeTransparency = textparams.textstroketransparency or 0
 	guitextobject.TextXAlignment = textparams.textxalignment or Enum.TextXAlignment.Center
 	guitextobject.TextYAlignment = textparams.textyalignment or Enum.TextYAlignment.Center
+end
+
+--- writes textbox properties to `textbox`
+function gui.writetextbox(textbox: TextBox, textboxparams: textboxparams)
+	textbox.ClearTextOnFocus = if textboxparams.cleartextonfocus ~= nil then textboxparams.cleartextonfocus else true
+	textbox.CursorPosition = textboxparams.cursorposition or 1
+	textbox.MultiLine = if textboxparams.multiline ~= nil then textboxparams.multiline else false
+	textbox.PlaceholderColor3 = textboxparams.placeholdercolor3 or Color3.fromRGB(127, 127, 127)
+	textbox.PlaceholderText = textboxparams.placeholdertext or ""
+	textbox.SelectionStart = textboxparams.selectionstart or -1
+	textbox.ShowNativeInput = if textboxparams.shownativeinput ~= nil then textboxparams.shownativeinput else false
+	textbox.TextEditable = if textboxparams.texteditable ~= nil then textboxparams.texteditable else true
 end
 
 --- writes viewport properties to `GuiObject`
@@ -596,6 +628,17 @@ function gui.createimagelabel(params: appearance & alignmentparams & imageparams
 	gui.writeimage(imagelabel, params)
 
 	return imagelabel
+end
+
+--- creates a `TextBox`
+function gui.createtextbox(params: appearance & alignmentparams & textparams & textboxparams)
+	local textbox = Instance.new("TextBox")
+
+	gui.writeappearance(textbox, params)
+	gui.writealignment(textbox, params)
+	gui.writetextbox(textbox, params)
+
+	return textbox
 end
 
 --- creates a `TextLabel`
@@ -1081,6 +1124,44 @@ function gui.createnameplate(text: string, font: Enum.Font, adornee: Instance, p
 	textlabel.Parent = billboardgui
 
 	return billboardgui
+end
+
+--- returns a gifcontroller
+--- ```
+--- 1 1 1 1 1 1
+--- 1 1 1 1 1 1
+--- 1 1 1 1 1 1
+--- 1 1 1 1 1 1
+--- 1 1 1 0 0 0
+--- ```
+--- ... describes a 27-frame gif (as a single image/content asset)
+function gui.creategifcontroller()
+	return {
+		content = Content.none;
+		size = Vector2.zero;
+		frames = 0;
+		width = 0;
+		time = 0;
+		elapsed = 0;
+		plays = 0;
+	}
+end
+
+--- advances gifcontroller by `dt`
+function gui.gifcontrollerstep(gc: typeof(gui.creategifcontroller()), dt: number)
+	gc.elapsed += dt
+	local spf = gc.time / gc.frames
+	local int = gc.elapsed // spf
+	
+	if int > gc.frames then
+		gc.elapsed = 0
+		gc.plays += 1
+	end
+	
+	local imagerectoffsetx = int % gc.width
+	local imagerectoffsety = int // gc.width
+	
+	return Vector2.new(imagerectoffsetx * gc.size.X, imagerectoffsety * gc.size.Y)
 end
 
 return gui
