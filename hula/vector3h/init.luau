@@ -336,66 +336,50 @@ end
 --- `vector3 position of intersection` \
 --- `vector3 normal of intersection` \
 --- `number distance until intersection` \
---- ... of ray starting at `rayposition` in `raydirection` and axis-aligned bounding box at `boxposition` with size `boxsize`
-function vector3h.rayintersectbox(rayposition: Vector3, raydirection: Vector3, boxposition: Vector3, boxsize: Vector3)
-	local rx, ry, rz = rayposition.X, rayposition.Y, rayposition.Z
-	local unitvector = (vector.normalize(raydirection::any)::any)::Vector3
-	local id = 1 / unitvector
-	local dxi, dyi, dzi = id.X, id.Y, id.Z
-	if math.isinf(dxi) then
-		dxi = 0
-	end
-	if math.isinf(dyi) then
-		dxi = 0
-	end
-	if math.isinf(dzi) then
-		dxi = 0
-	end
-
+--- ... of ray starting at `rayposition` in `raydirection` and obb formed by `boxposition` with size `boxsize` and orientation of `lookvector, upvector(?=Vector3.yAxis)`
+function vector3h.rayintersectbox(rayposition: Vector3, raydirection: Vector3, boxposition: Vector3, boxsize: Vector3, boxlookvector: Vector3, boxupvector: Vector3?)
+	boxupvector = boxupvector or Vector3.yAxis
+	
+	--- local cframe = CFrame.lookAlong(boxposition, boxlookvector, boxupvector)
+	--- local objectspace = cframe:PointToObjectSpace(rayposition)
+	--- local objectdirection = cframe:VectorToObjectSpace(raydirection)
+	local objectspace = vector3h.pointtoobjectspace(rayposition, boxposition, boxlookvector, boxupvector)
+	local objectspacedirection = vector3h.pointtoobjectspace(raydirection, Vector3.zero, boxlookvector, boxupvector)
+	
 	local halfsize = boxsize * 0.5
-	local min = boxposition - halfsize
-	local max = boxposition + halfsize
+	local t0 = (-halfsize - objectspace) / objectspacedirection
+	local t1 = (halfsize - objectspace) / objectspacedirection
 
-	local t1 = (min.X - rx) * dxi
-	local t2 = (max.X - rx) * dxi
-	local t3 = (min.Y - ry) * dyi
-	local t4 = (max.Y - ry) * dyi
-	local t5 = (min.Z - rz) * dzi
-	local t6 = (max.Z - rz) * dzi
-
-	local tmin = math.max(math.max(math.min(t1, t2), math.min(t3, t4)), math.min(t5, t6))
-	local tmax = math.min(math.min(math.max(t1, t2), math.max(t3, t4)), math.max(t5, t6))
+	local t_min = (vector.min(t0::any, t1::any)::any)::Vector3
+	local t_max = (vector.max(t0::any, t1::any)::any)::Vector3
+		
+	local tenter = math.max(t_min.X, t_min.Y, t_min.Z)
+	local texit = math.min(t_max.X, t_max.Y, t_max.Z)
 
 	local point
 	local normal
 	local distance
 
-	if tmax < 0 then
-		--- intersection, but out of box bounds
-	elseif tmin > tmax then
-		--- no intersection
-	else
-		--- intersection
-		distance = tmin
-		normal = Vector3.zero
-		point = rayposition + (unitvector * distance)
-
-		--- resolve normal
-		local mindistance = math.huge
-		local modpoint = point - boxposition
-		local delta = (vector.abs((boxsize::any) - vector.abs(modpoint::any))::any)::Vector3
-		if delta.X < mindistance then
-			mindistance = delta.X
-			normal = ((vector.sign(modpoint::any)::any)::Vector3) * Vector3.xAxis
-		end
-		if delta.Y < mindistance then
-			mindistance = delta.Y
-			normal = ((vector.sign(modpoint::any)::any)::Vector3) * Vector3.yAxis
-		end
-		if delta.Z < mindistance then
-			mindistance = delta.Z
-			normal = ((vector.sign(modpoint::any)::any)::Vector3) * Vector3.zAxis
-		end
+	if (tenter <= texit)
+	and (tenter < 1)
+	and (texit > 0)
+	then
+		--- normal = cframe:VectorToWorldSpace(
+		--- 	tenter == t_min.Y and Vector3.new(-math.sign(objectspacedirection.X), 0, 0)
+		--- 	or tenter == t_min.Y and Vector3.new(0, -math.sign(objectspacedirection.Y), 0)
+		--- 	or Vector3.new(0, 0, -math.sign(objectspacedirection.Z))
+		--- )
+		normal = vector3h.pointtoworldspace(
+			tenter == t_min.X and Vector3.new(-math.sign(objectspacedirection.X), 0, 0)
+			or tenter == t_min.Y and Vector3.new(0, -math.sign(objectspacedirection.Y), 0)
+			or Vector3.new(0, 0, -math.sign(objectspacedirection.Z)),
+			Vector3.zero,
+			boxlookvector,
+			boxupvector
+		)
+		local intersectdirection = raydirection * tenter
+		point = rayposition + intersectdirection
+		distance = vector3h.magnitude(intersectdirection)
 	end
 
 	return point, normal, distance
@@ -588,7 +572,7 @@ end
 
 --- returns position of a projectile given its initial `velocity`, elapsed `time`, and `acceleration`
 function vector3h.projectilesolveoffset(initialposition: Vector3, velocity: Vector3, time: number, acceleration: Vector3): Vector3
-	return initialposition + (vector.normalize(velocity::any)::any * (vector.magnitude(velocity::any) * time)) + ((0.5 * Vector3.yAxis) * acceleration * (time * time))
+	return initialposition + (vector.normalize(velocity::any)::any * (vector.magnitude(velocity::any) * time)) + ((0.5 * Vector3.one) * acceleration * (time * time))
 end
 
 function vector3h.projectilesolvetime(height: number, velocity: Vector3, acceleration: Vector3)
